@@ -87,7 +87,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className={`sidebar ${collapsed ? "sidebar-collapsed" : ""} ${open ? "sidebar-open" : ""}`}>
+    <aside
+      id="app-sidebar"
+      className={`sidebar ${collapsed ? "sidebar-collapsed" : ""} ${open ? "sidebar-open" : ""}`}
+      aria-label="Menú principal"
+    >
       {/* Header */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
@@ -96,7 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <img src="/logo-mobile.png" alt="EsSalud" className="sidebar-logo-mobile" />
           </div>
         </div>
-        <button className="sidebar-toggle" onClick={onToggle}>
+        <button
+          className="sidebar-toggle"
+          onClick={onToggle}
+          aria-label="Alternar menú lateral"
+        >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </div>
@@ -114,12 +122,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   to={item.path}
                   className={`sidebar-link ${isActive ? "sidebar-link-active" : ""}`}
                   title={collapsed ? item.label : undefined}
+                  aria-label={collapsed ? item.label : undefined}
                   onClick={onNavigate}
                 >
                   <Icon size={20} className="sidebar-link-icon" />
-                  {!collapsed && (
-                    <span className="sidebar-link-text">{item.label}</span>
-                  )}
+                  <span className="sidebar-link-text">{item.label}</span>
                 </NavLink>
               </li>
             );
@@ -133,14 +140,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="sidebar-user-avatar">
             {user?.nombres?.[0] || user?.usuario?.[0] || "U"}
           </div>
-          {!collapsed && (
-            <div className="sidebar-user-info">
-              <p className="sidebar-user-name">
-                {user?.nombres} {user?.apellidos}
-              </p>
-              <p className="sidebar-user-role">{user?.roles?.[0] || "Usuario"}</p>
-            </div>
-          )}
+          <div className="sidebar-user-info">
+            <p className="sidebar-user-name">
+              {user?.nombres} {user?.apellidos}
+            </p>
+            <p className="sidebar-user-role">{user?.roles?.[0] || "Usuario"}</p>
+          </div>
         </div>
         
         <button
@@ -149,7 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title={collapsed ? "Cerrar Sesión" : undefined}
         >
           <LogOut size={20} />
-          {!collapsed && <span>Cerrar Sesión</span>}
+          <span>Cerrar Sesión</span>
         </button>
       </div>
     </aside>

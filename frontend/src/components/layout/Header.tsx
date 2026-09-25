@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import "./Header.css";
 
 interface HeaderProps {
+  sidebarOpen: boolean;
   onToggleSidebar: () => void;
 }
 
@@ -18,7 +19,10 @@ const ROUTE_INFO: { prefix: string; title: string; subtitle: string }[] = [
   { prefix: "/reportes", title: "Reportes", subtitle: "Estadísticas y resumen del sistema" },
 ];
 
-export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({
+  sidebarOpen,
+  onToggleSidebar,
+}) => {
   const { user } = useAuth();
   const { pathname } = useLocation();
   const isDashboard = pathname === "/dashboard";
@@ -52,7 +56,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         <button
           className="header-menu-btn mobile-only"
           onClick={onToggleSidebar}
-          aria-label="Abrir menú"
+          aria-controls="app-sidebar"
+          aria-expanded={sidebarOpen}
+          aria-label={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
         >
           <Menu size={24} />
         </button>

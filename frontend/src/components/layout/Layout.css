@@ -1,6 +1,7 @@
 .layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-secondary);
 }
 
@@ -39,6 +40,7 @@
   margin: 0 auto;
   padding: var(--spacing-xl);
   min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
 }
 
 /* Responsive */
