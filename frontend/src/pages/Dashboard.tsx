@@ -8,7 +8,6 @@ import {
   Shield,
   Heart,
   TrendingUp,
-  Calendar,
   Loader2,
   Plus,
   Search,
@@ -22,7 +21,7 @@ import type { ResumenDashboard } from "../types";
 import "./Dashboard.css";
 
 export const Dashboard: React.FC = () => {
-  const { user, tienePermiso } = useAuth();
+  const { tienePermiso } = useAuth();
   const [stats, setStats] = useState<ResumenDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,27 +48,6 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
-      {/* Welcome Section */}
-      <div className="dashboard-welcome">
-        <div className="welcome-content">
-          <h1>
-            Bienvenido, {user?.nombres || user?.usuario}
-          </h1>
-          <p>Gestión de Actos Administrativos - EsSalud</p>
-          <div className="welcome-date">
-            <Calendar size={16} />
-            <span>
-              {new Date().toLocaleDateString("es-PE", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {error && (
         <Alert variant="error" onClose={() => setError("")}>
           <AlertCircle size={20} />

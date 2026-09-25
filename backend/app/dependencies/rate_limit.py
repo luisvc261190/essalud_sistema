@@ -12,7 +12,7 @@ class LoginRateLimiter:
     En produccion se recomienda delegar a un limitador de borde (proxy/reverse).
     """
 
-    def __init__(self, max_attempts: int = 5, window_seconds: int = 300):
+    def __init__(self, max_attempts: int = 10, window_seconds: int = 300):
         self.max_attempts = max_attempts
         self.window_seconds = window_seconds
         self._attempts: dict[str, list[float]] = {}

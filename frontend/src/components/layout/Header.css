@@ -15,6 +15,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
+  min-width: 0;
 }
 
 .header-menu-btn {
@@ -33,6 +34,10 @@
   color: var(--text-primary);
 }
 
+.header-breadcrumb {
+  min-width: 0;
+}
+
 .header-breadcrumb h1 {
   font-size: 1.25rem;
   font-weight: 700;
@@ -44,6 +49,29 @@
   font-size: 0.8125rem;
   color: var(--text-tertiary);
   margin: 0;
+}
+
+.header-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.header-center-separator {
+  color: var(--text-tertiary);
+}
+
+.header-center-time {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .header-right {
@@ -142,6 +170,26 @@
 
   .header-breadcrumb p {
     display: none;
+  }
+
+  .header-center {
+    position: static;
+    transform: none;
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+    gap: var(--spacing-xs);
+    font-size: 0.6875rem;
+  }
+
+  .header-center-date {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-center-separator,
+  .header-center-time {
+    flex-shrink: 0;
   }
 
   .header-notification {
