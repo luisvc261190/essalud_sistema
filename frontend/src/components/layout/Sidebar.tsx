@@ -19,9 +19,15 @@ interface SidebarProps {
   collapsed: boolean;
   open: boolean;
   onToggle: () => void;
+  onNavigate: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ collapsed, open, onToggle }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  collapsed,
+  open,
+  onToggle,
+  onNavigate,
+}) => {
   const { user, logout, tienePermiso } = useAuth();
   const location = useLocation();
 
@@ -108,6 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, open, onToggle }) =
                   to={item.path}
                   className={`sidebar-link ${isActive ? "sidebar-link-active" : ""}`}
                   title={collapsed ? item.label : undefined}
+                  onClick={onNavigate}
                 >
                   <Icon size={20} className="sidebar-link-icon" />
                   {!collapsed && (
