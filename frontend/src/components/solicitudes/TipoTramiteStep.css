@@ -1,0 +1,339 @@
+.tipo-tramite-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.step-intro {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.step-intro h3 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.step-intro p {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.selection-badge {
+  animation: slideInDown var(--transition-base);
+}
+
+.tipo-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}
+
+.tipo-option {
+  position: relative;
+  transition: all var(--transition-base);
+  border: 2px solid transparent;
+  cursor: pointer;
+  min-height: 500px;
+}
+
+.tipo-option:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--border-dark);
+}
+
+.tipo-option-selected {
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, var(--color-primary-50) 100%);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+}
+
+.tipo-option-button {
+  width: 100%;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.tipo-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  position: relative;
+}
+
+.tipo-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.tipo-icon-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+  color: var(--text-inverse);
+}
+
+.tipo-icon-secondary {
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-light));
+  color: var(--text-inverse);
+}
+
+.tipo-option-selected .tipo-icon {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
+.tipo-title-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.tipo-title-section h4 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.tipo-title-section p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.selection-indicator {
+  color: var(--color-success);
+  animation: bounceIn 0.3s ease-out;
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.tipo-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  flex: 1;
+}
+
+.tipo-section h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.feature-list,
+.process-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.feature-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: var(--spacing-xs) 0;
+}
+
+.feature-list li svg {
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
+.process-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: var(--spacing-sm) 0;
+}
+
+.process-step {
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-primary-100);
+  color: var(--color-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Selection Summary */
+.selection-summary {
+  background: linear-gradient(135deg, var(--color-success) 0%, #059669 100%);
+  color: var(--text-inverse);
+  border: none;
+  animation: slideInUp var(--transition-base);
+}
+
+.summary-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.summary-icon {
+  width: 48px;
+  height: 48px;
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  flex-shrink: 0;
+}
+
+.summary-header h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-inverse);
+}
+
+.summary-header p {
+  font-size: 0.9375rem;
+  margin: 0;
+  opacity: 0.9;
+  color: var(--text-inverse);
+}
+
+.next-steps h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--text-inverse);
+}
+
+.next-steps ol {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+  color: var(--text-inverse);
+}
+
+.next-steps li {
+  font-size: 0.875rem;
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.9;
+}
+
+/* Help Section */
+.tipo-help {
+  background-color: var(--color-primary-50);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.help-content h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+.help-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.help-item strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.help-item span {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .tipo-options {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+  
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .tipo-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--spacing-md);
+  }
+  
+  .tipo-icon {
+    width: 56px;
+    height: 56px;
+  }
+  
+  .summary-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .step-intro h3 {
+    font-size: 1.5rem;
+  }
+  
+  .step-intro p {
+    font-size: 1rem;
+  }
+}

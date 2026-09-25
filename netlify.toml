@@ -1,0 +1,16 @@
+# Netlify — Despliegue del frontend (React + Vite)
+# El backend vive en Render (ver render.yaml).
+
+[build]
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA: cualquier ruta del cliente (consultas, usuarios, etc.) cae en index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,44 @@
+# Render Blueprint — Backend FastAPI
+#
+# Uso:
+#   1. En Render: "New +" > "Blueprint" y elegir este repo (rama develop).
+#   2. ANTES de la primera subida exitosa reemplaza en el panel "Environment"
+#      los valores marcados abajo (placeholders):
+#        - DATABASE_URL           -> cadena PostgreSQL de Neon
+#        - CORS_ORIGINS           -> URL de tu sitio Netlify (ej. https://essalud.netlify.app)
+#        - SEED_SUPERADMIN_PASSWORD -> contraseña real del superadmin
+#      JWT_SECRET_KEY y JWT_REFRESH_SECRET_KEY se generan automáticamente.
+#   3. Tras el primer deploy, ejecuta una vez el seed (Render > Shell):
+#        cd backend && python -m scripts.seed
+#
+# Nota: los respaldos manuales (pg_dump/pg_restore) requieren que esas
+# herramientas existan en el servidor; ver docs/BACKUPS.md.
+
+services:
+  - type: web
+    name: essalud-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://USUARIO:PASSWORD@HOST-POOLER.neon.tech/DB?sslmode=require
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_REFRESH_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://TU-SITIO.netlify.app
+      - key: SEED_SUPERADMIN_USERNAME
+        value: superadmin
+      - key: SEED_SUPERADMIN_PASSWORD
+        value: CAMBIAME_EN_PROD
+      - key: SEED_SUPERADMIN_NOMBRES
+        value: Super
+      - key: SEED_SUPERADMIN_APELLIDOS
+        value: Administrador

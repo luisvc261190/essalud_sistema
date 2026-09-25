@@ -1,0 +1,39 @@
+# Entornos (¡nunca subir credenciales!)
+.env
+.env.*
+!.env.example
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Bases de datos y respaldos locales
+*.db
+*.sqlite3
+*.dump
+backups/
+
+# IDE / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs y artefactos locales de prueba
+*.log
+logs/
+run.out
+pytest_*.txt
