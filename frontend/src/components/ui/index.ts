@@ -1,5 +1,8 @@
 export { Button } from "./Button";
 export { Input } from "./Input";
+export type { InputProps } from "./Input";
+export { NITInput } from "./NITInput";
+export type { NITInputHandle } from "./NITInput";
 export { Select } from "./Select";
 export { Card, CardHeader, CardBody, CardFooter } from "./Card";
 export { Modal } from "./Modal";

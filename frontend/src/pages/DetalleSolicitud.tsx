@@ -24,7 +24,9 @@ import { LoadingScreen } from "../components/ui";
 import {
   formatDisplayDate,
   formatNumeroResolucion,
+  soloDigitosNumeroResolucion,
   formatNumeroNotaDerivacion,
+  soloDigitosNumeroNotaDerivacion,
   formatDNI,
 } from "../utils/formatters";
 import { solicitudesEndpoints } from "../services/endpoints";
@@ -142,6 +144,14 @@ const RIESGO_LABELS: Record<string, string> = {
 
 const capitalize = (value: string) =>
   value.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+
+/** La notificación es opcional: si no se registró, se muestra como pendiente. */
+const SIN_NOTIFICAR = "Pendiente";
+const fechaOpcional = (valor?: string | null) =>
+  valor ? formatDisplayDate(valor) : SIN_NOTIFICAR;
+const textoOpcional = (valor?: string | null) =>
+  valor ? capitalize(valor) : SIN_NOTIFICAR;
+const valorOpcional = (valor?: string | null) => valor || SIN_NOTIFICAR;
 
 export const DetalleSolicitud: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -391,19 +401,19 @@ export const DetalleSolicitud: React.FC = () => {
                 </div>
                 <div className="detalle-field">
                   <span>Fecha de Notificación</span>
-                  <strong>{formatDisplayDate(solicitud.resolucion.fecha_notificacion)}</strong>
+                  <strong>{fechaOpcional(solicitud.resolucion.fecha_notificacion)}</strong>
                 </div>
                 <div className="detalle-field">
                   <span>Medio de Comunicación</span>
-                  <strong>{capitalize(solicitud.resolucion.medio_comunicacion)}</strong>
+                  <strong>{textoOpcional(solicitud.resolucion.medio_comunicacion)}</strong>
                 </div>
                 <div className="detalle-field">
                   <span>DNI</span>
-                  <strong>{solicitud.resolucion.dni_recepciona}</strong>
+                  <strong>{valorOpcional(solicitud.resolucion.dni_recepciona)}</strong>
                 </div>
                 <div className="detalle-field detalle-field-full">
                   <span>Apellidos y Nombres</span>
-                  <strong>{solicitud.resolucion.apellidos_nombres}</strong>
+                  <strong>{valorOpcional(solicitud.resolucion.apellidos_nombres)}</strong>
                 </div>
               </div>
             ) : (
@@ -449,15 +459,18 @@ export const DetalleSolicitud: React.FC = () => {
                   </div>
                   <div className="detalle-field">
                     <span>Fecha de Notificación</span>
-                    <strong>{formatDisplayDate(solicitud.reconsideracion.fecha_notificacion)}</strong>
+                    <strong>{fechaOpcional(solicitud.reconsideracion.fecha_notificacion)}</strong>
                   </div>
                   <div className="detalle-field">
                     <span>Medio</span>
-                    <strong>{capitalize(solicitud.reconsideracion.medio_comunicacion)}</strong>
+                    <strong>{textoOpcional(solicitud.reconsideracion.medio_comunicacion)}</strong>
                   </div>
                   <div className="detalle-field detalle-field-full">
                     <span>Quien Recibió</span>
-                    <strong>{solicitud.reconsideracion.apellidos_nombres} ({solicitud.reconsideracion.dni_recepciona})</strong>
+                    <strong>
+                      {valorOpcional(solicitud.reconsideracion.apellidos_nombres)} (
+                      {valorOpcional(solicitud.reconsideracion.dni_recepciona)})
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -578,6 +591,7 @@ const ReconsideracionModal: React.FC<ReconsideracionModalProps> = ({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormReconsideracion>({
     resolver: zodResolver(reconsideracionSchema) as never,
@@ -627,11 +641,29 @@ const ReconsideracionModal: React.FC<ReconsideracionModalProps> = ({
               <Input
                 placeholder="0000"
                 maxLength={4}
-                {...register("numero_resolucion")}
-                onChange={(e) => {
-                  e.target.value = formatNumeroResolucion(e.target.value);
-                  register("numero_resolucion").onChange(e);
-                }}
+                inputMode="numeric"
+                {...register("numero_resolucion", {
+                  // Mientras se escribe solo se filtran los dígitos. Rellenar con
+                  // ceros aquí llenaba el campo al primer dígito y bloqueaba el
+                  // resto, porque el campo ya alcanzaba su maxLength de 4.
+                  onChange: (e) =>
+                    setValue(
+                      "numero_resolucion",
+                      soloDigitosNumeroResolucion(e.target.value)
+                    ),
+                  // Los ceros a la izquierda se agregan al salir del campo.
+                  // `shouldValidate` es obligatorio: sin esto el error que
+                  // apareció al teclear un solo dígito se queda pegado aunque
+                  // el valor ya tenga los 4 dígitos.
+                  onBlur: (e) => {
+                    const digits = soloDigitosNumeroResolucion(e.target.value);
+                    setValue(
+                      "numero_resolucion",
+                      digits ? formatNumeroResolucion(digits) : "",
+                      { shouldValidate: true }
+                    );
+                  },
+                })}
                 error={errors.numero_resolucion?.message}
               />
             </div>
@@ -717,7 +749,7 @@ interface ApelacionModalProps extends ModalBaseProps {
 }
 
 const ApelacionModal: React.FC<ApelacionModalProps> = ({ abierto, onClose, onGuardar }) => {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<
     z.infer<typeof apelacionSchema>
   >({
     resolver: zodResolver(apelacionSchema),
@@ -761,11 +793,24 @@ const ApelacionModal: React.FC<ApelacionModalProps> = ({ abierto, onClose, onGua
               <Input
                 placeholder="000000"
                 maxLength={6}
-                {...register("numero_nota_derivacion")}
-                onChange={(e) => {
-                  e.target.value = formatNumeroNotaDerivacion(e.target.value);
-                  register("numero_nota_derivacion").onChange(e);
-                }}
+                inputMode="numeric"
+                {...register("numero_nota_derivacion", {
+                  // Mismo criterio que el número de resolución: solo dígitos
+                  // mientras se escribe, ceros a la izquierda al salir.
+                  onChange: (e) =>
+                    setValue(
+                      "numero_nota_derivacion",
+                      soloDigitosNumeroNotaDerivacion(e.target.value)
+                    ),
+                  onBlur: (e) => {
+                    const digits = soloDigitosNumeroNotaDerivacion(e.target.value);
+                    setValue(
+                      "numero_nota_derivacion",
+                      digits ? formatNumeroNotaDerivacion(digits) : "",
+                      { shouldValidate: true }
+                    );
+                  },
+                })}
                 error={errors.numero_nota_derivacion?.message}
               />
             </div>
@@ -807,6 +852,7 @@ const ResolucionModal: React.FC<ResolucionModalProps> = ({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormResolucion>({
     resolver: zodResolver(resolucionSchema) as never,
@@ -860,11 +906,29 @@ const ResolucionModal: React.FC<ResolucionModalProps> = ({
               <Input
                 placeholder="0000"
                 maxLength={4}
-                {...register("numero_resolucion")}
-                onChange={(e) => {
-                  e.target.value = formatNumeroResolucion(e.target.value);
-                  register("numero_resolucion").onChange(e);
-                }}
+                inputMode="numeric"
+                {...register("numero_resolucion", {
+                  // Mientras se escribe solo se filtran los dígitos. Rellenar con
+                  // ceros aquí llenaba el campo al primer dígito y bloqueaba el
+                  // resto, porque el campo ya alcanzaba su maxLength de 4.
+                  onChange: (e) =>
+                    setValue(
+                      "numero_resolucion",
+                      soloDigitosNumeroResolucion(e.target.value)
+                    ),
+                  // Los ceros a la izquierda se agregan al salir del campo.
+                  // `shouldValidate` es obligatorio: sin esto el error que
+                  // apareció al teclear un solo dígito se queda pegado aunque
+                  // el valor ya tenga los 4 dígitos.
+                  onBlur: (e) => {
+                    const digits = soloDigitosNumeroResolucion(e.target.value);
+                    setValue(
+                      "numero_resolucion",
+                      digits ? formatNumeroResolucion(digits) : "",
+                      { shouldValidate: true }
+                    );
+                  },
+                })}
                 error={errors.numero_resolucion?.message}
               />
             </div>

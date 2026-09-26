@@ -18,6 +18,26 @@ const DEFAULT_GET_TTL_MS = 30_000;
 const CACHE_MAX_ENTRIES = 300;
 const _cache = new Map<string, CacheEntry>();
 
+/** Opciones propias de esta capa, admitidas en cualquier peticion. */
+export interface CacheOpciones {
+  /**
+   * Vigencia de la respuesta en cache. `0` desactiva la cache para esa
+   * peticion. Por defecto los GET se guardan 30 s.
+   */
+  cacheTTL?: number;
+  /** Ignora la entrada cacheada y vuelve a preguntar al servidor. */
+  skipCache?: boolean;
+}
+
+// Registra las opciones anteriores en el tipo de configuracion de axios, para
+// que se puedan pasar tal cual en `api.get(url, { cacheTTL, skipCache })`.
+declare module "axios" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface AxiosRequestConfig extends CacheOpciones {}
+}
+
+type PeticionCacheable = InternalAxiosRequestConfig & CacheOpciones;
+
 function _hashToken(token: string | null): string {
   if (!token) return "anon";
   let h = 5381;
@@ -48,14 +68,13 @@ async function adapterConCache(
   config: InternalAxiosRequestConfig
 ): Promise<AxiosResponse> {
   const esGET = (config.method || "get").toLowerCase() === "get";
-  const ttl = (config as InternalAxiosRequestConfig & { cacheTTL?: number })
-    .cacheTTL as number | undefined;
-  const ttlMs = ttl === undefined ? DEFAULT_GET_TTL_MS : ttl;
+  const { cacheTTL, skipCache } = config as PeticionCacheable;
+  const ttlMs = cacheTTL === undefined ? DEFAULT_GET_TTL_MS : cacheTTL;
 
   if (esGET && ttlMs > 0) {
     const key = _cacheKey(config);
     const hit = _cache.get(key);
-    if (hit && Date.now() - hit.at < hit.ttl) {
+    if (!skipCache && hit && Date.now() - hit.at < hit.ttl) {
       return hit.res;
     }
     const res = await defaultAdapter(config);
@@ -96,6 +115,10 @@ api.interceptors.request.use(
 );
 
 export const getErrorMessage = (error: unknown): string => {
+  if (axios.isCancel(error)) {
+    // La peticion se cancelo porque el usuario siguio escribiendo: no es un fallo.
+    return "";
+  }
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as { detail?: unknown } | undefined;
     if (data?.detail) {

@@ -164,11 +164,12 @@ class Resolucion(Base):
     )
     anio: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     fecha_emision: Mapped[date] = mapped_column(Date, nullable=False)
-    fecha_notificacion: Mapped[date] = mapped_column(Date, nullable=False)
-    medio_comunicacion: Mapped[str] = mapped_column(String(15), nullable=False)
-    dni_recepciona: Mapped[str] = mapped_column(String(DNI_CE_MAX), nullable=False)
-    apellidos_nombres: Mapped[str] = mapped_column(
-        String(MAX_APELLIDOS_NOMBRES), nullable=False
+    # La notificacion es opcional: la resolucion se puede grabar sin llegar a ella.
+    fecha_notificacion: Mapped[date | None] = mapped_column(Date, nullable=True)
+    medio_comunicacion: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    dni_recepciona: Mapped[str | None] = mapped_column(String(DNI_CE_MAX), nullable=True)
+    apellidos_nombres: Mapped[str | None] = mapped_column(
+        String(MAX_APELLIDOS_NOMBRES), nullable=True
     )
 
     solicitud: Mapped[Solicitud] = relationship(back_populates="resolucion")
@@ -198,11 +199,12 @@ class RecursoReconsideracion(Base):
     anio: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     fecha_emision: Mapped[date] = mapped_column(Date, nullable=False)
     decision_resolucion: Mapped[str] = mapped_column(String(15), nullable=False)
-    fecha_notificacion: Mapped[date] = mapped_column(Date, nullable=False)
-    medio_comunicacion: Mapped[str] = mapped_column(String(15), nullable=False)
-    dni_recepciona: Mapped[str] = mapped_column(String(DNI_CE_MAX), nullable=False)
-    apellidos_nombres: Mapped[str] = mapped_column(
-        String(MAX_APELLIDOS_NOMBRES), nullable=False
+    # La notificacion es opcional: se puede grabar sin llegar a ella.
+    fecha_notificacion: Mapped[date | None] = mapped_column(Date, nullable=True)
+    medio_comunicacion: Mapped[str | None] = mapped_column(String(15), nullable=True)
+    dni_recepciona: Mapped[str | None] = mapped_column(String(DNI_CE_MAX), nullable=True)
+    apellidos_nombres: Mapped[str | None] = mapped_column(
+        String(MAX_APELLIDOS_NOMBRES), nullable=True
     )
 
     solicitud: Mapped[Solicitud] = relationship(back_populates="reconsideracion")

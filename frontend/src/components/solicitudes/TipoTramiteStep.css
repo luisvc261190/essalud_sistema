@@ -203,61 +203,81 @@
   flex-shrink: 0;
 }
 
-/* Selection Summary */
-.selection-summary {
-  background: linear-gradient(135deg, var(--color-success) 0%, #059669 100%);
-  color: var(--text-inverse);
-  border: none;
+/* Selection Summary
+
+   Acotado a `.tipo-tramite-step`: era global y se repetía idéntica en
+   DatosSeguroStep.css y DatosSubsidioStep.css, con lo que el color dependía del
+   orden de carga de los CSS y se filtraba a otros pasos del wizard.
+
+   El degradado verde con el texto en blanco invertido competía visualmente con
+   las cards de SEGURO/SUBSIDIO y con el bloque de ayuda de abajo: tres bloques
+   de color fuerte seguidos. Ahora es una card neutra con filete azul, igual que
+   el resumen de subsidio y el de datos de seguro. */
+.tipo-tramite-step .selection-summary {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  border-left: 3px solid var(--color-primary);
+  box-shadow: none;
   animation: slideInUp var(--transition-base);
 }
 
-.summary-header {
+.tipo-tramite-step .summary-header {
   display: flex;
-  align-items: flex-start;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.summary-icon {
-  width: 48px;
-  height: 48px;
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-lg);
+.tipo-tramite-step .summary-icon {
+  width: auto;
+  height: auto;
+  background: none;
+  padding: 0;
+  border-radius: 0;
   flex-shrink: 0;
+  color: var(--color-primary);
 }
 
-.summary-header h4 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: var(--text-inverse);
-}
-
-.summary-header p {
+.tipo-tramite-step .summary-header h4 {
   font-size: 0.9375rem;
-  margin: 0;
-  opacity: 0.9;
-  color: var(--text-inverse);
-}
-
-.next-steps h5 {
-  font-size: 1rem;
   font-weight: 600;
-  margin: 0 0 var(--spacing-md) 0;
-  color: var(--text-inverse);
+  margin: 0;
+  color: var(--text-primary);
 }
 
-.next-steps ol {
+.tipo-tramite-step .summary-header p {
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tipo-tramite-step .next-steps h5 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: 0 0 var(--spacing-sm) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.tipo-tramite-step .next-steps ol {
   margin: 0;
   padding-left: var(--spacing-lg);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
-.next-steps li {
+.tipo-tramite-step .next-steps li {
   font-size: 0.875rem;
+  line-height: 1.5;
   margin-bottom: var(--spacing-sm);
-  opacity: 0.9;
+  color: var(--text-secondary);
+}
+
+.tipo-tramite-step .next-steps li:last-child {
+  margin-bottom: 0;
 }
 
 /* Help Section */
@@ -323,7 +343,9 @@
     height: 56px;
   }
   
-  .summary-header {
+  /* Acotado: sin el prefijo esta regla se aplicaba también al resumen de
+     resolución, de datos y de recurso en móvil. */
+  .tipo-tramite-step .summary-header {
     flex-direction: column;
     align-items: center;
     text-align: center;

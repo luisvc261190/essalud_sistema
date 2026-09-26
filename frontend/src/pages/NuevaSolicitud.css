@@ -242,3 +242,150 @@
 .step-active .step-circle {
   animation: stepPulse 2s ease-in-out infinite;
 }
+/* Seleccion de recurso (reconsideracion / apelacion / ninguno) */
+.recurso-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.recurso-opcion {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "icon texto check"
+    "pasos pasos pasos";
+  align-items: start;
+  column-gap: var(--spacing-md);
+  row-gap: var(--spacing-sm);
+  width: 100%;
+  padding: var(--spacing-md);
+  text-align: left;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color var(--transition-fast), background-color
+      var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.recurso-opcion:hover {
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-50);
+  transform: translateY(-1px);
+}
+
+.recurso-opcion:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.recurso-opcion-activa,
+.recurso-opcion-activa:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.recurso-opcion-icon {
+  grid-area: icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.recurso-opcion-activa .recurso-opcion-icon {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.recurso-opcion-texto {
+  grid-area: texto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.recurso-opcion-titulo {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.recurso-opcion-activa .recurso-opcion-titulo {
+  color: var(--color-primary-dark);
+}
+
+.recurso-opcion-descripcion {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+/* Rango de pasos del formulario que se añade al elegir la opcion. */
+.recurso-opcion-pasos {
+  grid-area: pasos;
+  justify-self: start;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.recurso-opcion-activa .recurso-opcion-pasos {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-100);
+  color: var(--color-primary-dark);
+}
+
+/* Marcador de la opcion elegida. Reserva su sitio para que el texto no se
+   desplace al seleccionar. */
+.recurso-opcion-check {
+  grid-area: check;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-medium);
+  color: transparent;
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.recurso-opcion-activa .recurso-opcion-check {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.recurso-nota {
+  margin: var(--spacing-md) 0 0;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}

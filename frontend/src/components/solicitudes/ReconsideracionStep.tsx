@@ -10,43 +10,52 @@ import {
   Building2,
   Monitor,
   Hash,
+  Scale,
+  AlertCircle,
 } from "lucide-react";
-import { Input, Select, Card, CardBody } from "../ui";
+import { Input, Select, Card, CardBody, Badge, Alert } from "../ui";
 import {
   formatNumeroResolucion,
   soloDigitosNumeroResolucion,
   formatDNI,
 } from "../../utils/formatters";
-import type { Resolucion, MedioComunicacion } from "../../types";
-import "./ResolucionStep.css";
+import type { Reconsideracion, MedioComunicacion } from "../../types";
+import "./RecursoStep.css";
 
-const resolucionSchema = z.object({
+const reconsideracionSchema = z.object({
+  fecha_recepcion: z.string().min(1, "La fecha de recepción es requerida"),
   numero_resolucion: z
     .string()
     .min(1, "El número de resolución es requerido")
     .regex(/^\d{4}$/, "El número debe contener 4 dígitos"),
-  anio: z
-    .string()
-    .regex(/^\d{4}$/, "El año debe tener 4 dígitos"),
+  anio: z.string().regex(/^\d{4}$/, "El año debe tener 4 dígitos"),
   fecha_emision: z.string().min(1, "La fecha de emisión es requerida"),
+  decision_resolucion: z
+    .string()
+    .min(1, "La decisión de la resolución es requerida")
+    .refine((val) => ["FUNDADO", "INFUNDADO", "EN PARTE"].includes(val), {
+      message: "Solo se permiten: FUNDADO, INFUNDADO, EN PARTE",
+    }),
   fecha_notificacion: z.string(),
   medio_comunicacion: z.string(),
   dni_recepciona: z.string(),
   apellidos_nombres: z.string().max(50, "Máximo 50 caracteres"),
 });
 
-type ResolucionForm = z.infer<typeof resolucionSchema>;
+type ReconsideracionForm = z.infer<typeof reconsideracionSchema>;
 
-interface ResolucionStepProps {
-  data?: Resolucion;
-  /**
-   * El cliente puede grabar la resolución sin necesidad de llegar a la
-   * notificación. Con false, la notificación queda pendiente y el trámite
-   * continúa sin ella.
-   */
-  notificacionOpcional?: boolean;
-  onChange: (data: Resolucion) => void;
+interface ReconsideracionStepProps {
+  data?: Reconsideracion;
+  /** Indica si la notificación es obligatoria en este formulario. */
+  notificacionObligatoria?: boolean;
+  onChange: (data: Reconsideracion) => void;
 }
+
+const decisionOptions = [
+  { value: "FUNDADO", label: "Fundado" },
+  { value: "INFUNDADO", label: "Infundado" },
+  { value: "EN PARTE", label: "En Parte" },
+];
 
 const medioOptions = [
   { value: "CORREO", label: "Correo Electrónico" },
@@ -54,9 +63,9 @@ const medioOptions = [
   { value: "VIRTUAL", label: "Virtual" },
 ];
 
-export const ResolucionStep: React.FC<ResolucionStepProps> = ({
+export const ReconsideracionStep: React.FC<ReconsideracionStepProps> = ({
   data,
-  notificacionOpcional = false,
+  notificacionObligatoria = true,
   onChange,
 }) => {
   const anioActual = new Date().getFullYear();
@@ -67,12 +76,14 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
     watch,
     setValue,
     formState: { errors, isValid, isDirty },
-  } = useForm<ResolucionForm>({
-    resolver: zodResolver(resolucionSchema),
+  } = useForm<ReconsideracionForm>({
+    resolver: zodResolver(reconsideracionSchema),
     defaultValues: {
+      fecha_recepcion: data?.fecha_recepcion || "",
       numero_resolucion: data?.numero_resolucion || "",
       anio: String(data?.anio || anioActual),
       fecha_emision: data?.fecha_emision || "",
+      decision_resolucion: data?.decision_resolucion || "",
       fecha_notificacion: data?.fecha_notificacion || "",
       medio_comunicacion: data?.medio_comunicacion || "",
       dni_recepciona: data?.dni_recepciona || "",
@@ -83,31 +94,43 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
 
   const watched = watch();
 
-  // El bloque de notificación se envía solo si está completo; el backend exige
-  // los cuatro campos o ninguno.
+  // El bloque de notificación es opcional: solo se envía si está completo.
+  // Si el usuario lo deja a medias se manda entero a null, porque el backend
+  // exige los cuatro campos o ninguno.
   const notificacionCompleta =
     watched.fecha_notificacion !== "" &&
     watched.medio_comunicacion !== "" &&
     watched.dni_recepciona !== "" &&
-    watched.apellidos_nombres !== "" &&
-    watched.fecha_notificacion >= watched.fecha_emision;
+    watched.apellidos_nombres !== "";
 
-  const datosValidos = isValid && (notificacionOpcional || notificacionCompleta);
+  const notificacionParcial =
+    !notificacionCompleta &&
+    (watched.fecha_notificacion !== "" ||
+      watched.medio_comunicacion !== "" ||
+      watched.dni_recepciona !== "" ||
+      watched.apellidos_nombres !== "");
+
+  const datosValidos =
+    isValid &&
+    watched.decision_resolucion !== "" &&
+    (notificacionObligatoria ? notificacionCompleta : true);
 
   React.useEffect(() => {
     if (!datosValidos) return;
+    const enviar = notificacionCompleta;
     onChange({
+      fecha_recepcion: watched.fecha_recepcion,
       numero_resolucion: watched.numero_resolucion,
       anio: Number(watched.anio),
       fecha_emision: watched.fecha_emision,
-      fecha_notificacion: notificacionCompleta
-        ? watched.fecha_notificacion
-        : null,
-      medio_comunicacion: notificacionCompleta
+      decision_resolucion: watched
+        .decision_resolucion as Reconsideracion["decision_resolucion"],
+      fecha_notificacion: enviar ? watched.fecha_notificacion : null,
+      medio_comunicacion: enviar
         ? (watched.medio_comunicacion as MedioComunicacion)
         : null,
-      dni_recepciona: notificacionCompleta ? watched.dni_recepciona : null,
-      apellidos_nombres: notificacionCompleta ? watched.apellidos_nombres : null,
+      dni_recepciona: enviar ? watched.dni_recepciona : null,
+      apellidos_nombres: enviar ? watched.apellidos_nombres : null,
     });
   }, [watched, datosValidos, notificacionCompleta, onChange]);
 
@@ -118,12 +141,44 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
   };
 
   return (
-    <div className="resolucion-step">
+    <div className="recurso-step">
+      <div className="step-intro">
+        <div className="intro-header">
+          <Scale className="intro-icon" />
+          <div>
+            <h3>Recurso de Reconsideración</h3>
+            <p>Pasos 23 al 31 · Impugnación de la resolución emitida</p>
+          </div>
+        </div>
+        <Badge variant="primary" className="tipo-badge">
+          <CheckCircle size={16} />
+          Segunda parte del acto administrativo
+        </Badge>
+      </div>
 
-
-      <form className="resolucion-form">
+      <form className="recurso-form">
         <div className="form-sections">
-          {/* Número de resolución y año */}
+          {/* Paso 23: fecha de recepción */}
+          <Card className="form-section form-section-full">
+            <CardBody>
+              <div className="section-header">
+                <Calendar className="section-icon" />
+                <h4>Datos de la Reconsideración</h4>
+              </div>
+
+              <Input
+                label="Fecha de Recepción"
+                type="date"
+                helperText="Formato DD/MM/AAAA"
+                icon={<Calendar size={20} />}
+                fullWidth
+                error={errors.fecha_recepcion?.message?.toString()}
+                {...register("fecha_recepcion")}
+              />
+            </CardBody>
+          </Card>
+
+          {/* Pasos 24, 25 y 26: número, año y fecha de emisión */}
           <Card className="form-section">
             <CardBody>
               <div className="section-header">
@@ -133,7 +188,7 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
 
               <Input
                 label="N° Resolución"
-                placeholder="0000"
+                placeholder="0045"
                 helperText="4 dígitos, se completa con ceros a la izquierda"
                 icon={<FileText size={20} />}
                 fullWidth
@@ -141,9 +196,9 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                 inputMode="numeric"
                 error={errors.numero_resolucion?.message?.toString()}
                 {...register("numero_resolucion", {
-                  // Mientras se escribe solo se filtran los dígitos. Rellenar con
-                  // ceros aquí llenaba el campo al primer dígito y bloqueaba el
-                  // resto, porque el campo ya alcanzaba su maxLength de 4.
+                  // Sin relleno mientras se escribe: rellenar en cada pulsación
+                  // llenaba el campo al primer dígito y bloqueaba el resto,
+                  // porque ya alcanzaba el maxLength de 4.
                   onChange: (e) =>
                     setValue(
                       "numero_resolucion",
@@ -161,7 +216,7 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                   },
                 })}
               />
-              <br />
+
               <Input
                 label="Año"
                 type="number"
@@ -174,18 +229,19 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
 
               {watched.numero_resolucion && (
                 <div className="resolucion-preview">
-                  <strong>Res. N° {watched.numero_resolucion}-{watched.anio}</strong>
+                  <strong>
+                    Res. N° {watched.numero_resolucion}-{watched.anio}
+                  </strong>
                 </div>
               )}
             </CardBody>
           </Card>
 
-          {/* Fechas */}
           <Card className="form-section">
             <CardBody>
               <div className="section-header">
                 <Calendar className="section-icon" />
-                <h4>Fechas</h4>
+                <h4>Fechas y Decisión</h4>
               </div>
 
               <Input
@@ -197,24 +253,31 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                 error={errors.fecha_emision?.message?.toString()}
                 {...register("fecha_emision")}
               />
-              <br />
-              <Input
-                label="Fecha de Notificación"
-                type="date"
-                helperText={
-                  notificacionOpcional
-                    ? "Opcional. No puede ser anterior a la emisión"
-                    : "No puede ser anterior a la emisión"
-                }
-                icon={<Calendar size={20} />}
-                fullWidth
-                error={errors.fecha_notificacion?.message?.toString()}
-                {...register("fecha_notificacion")}
+
+              <Controller
+                control={control}
+                name="decision_resolucion"
+                render={({ field }) => (
+                  <Select
+                    label="Decisión de Resolución"
+                    options={decisionOptions}
+                    placeholder="Seleccione la decisión"
+                    helperText="Solo se permiten: FUNDADO, INFUNDADO, EN PARTE"
+                    fullWidth
+                    error={errors.decision_resolucion?.message?.toString()}
+                    value={field.value}
+                    onChange={(value) =>
+                      field.onChange(
+                        value as Reconsideracion["decision_resolucion"]
+                      )
+                    }
+                  />
+                )}
               />
             </CardBody>
           </Card>
 
-          {/* Medio de comunicación */}
+          {/* Paso 28: fecha de notificación (opcional) */}
           <Card className="form-section form-section-full">
             <CardBody>
               <div className="section-header">
@@ -222,13 +285,34 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                 <h4>Notificación</h4>
               </div>
 
-              {notificacionOpcional && (
-                <p className="resolucion-nota">
-                  Opcional: puede grabar la resolución sin llegar a la
-                  notificación y registrar después la reconsideración. Si
-                  completa alguno de estos datos, debe llenarlos todos.
+              {!notificacionObligatoria && (
+                <p className="recurso-nota">
+                  Opcional: puede grabar la reconsideración sin llegar a la
+                  notificación. Si completa alguno de estos datos, debe
+                  llenarlos todos.
                 </p>
               )}
+
+              {notificacionParcial && (
+                <Alert variant="warning" className="recurso-alerta">
+                  <AlertCircle size={18} />
+                  Complete los cuatro datos de la notificación o déjelos vacíos:
+                  si queda alguno suelto, no se guardará ninguno.
+                </Alert>
+              )}
+
+              <Input
+                label="Fecha de Notificación"
+                type="date"
+                helperText={
+                  notificacionObligatoria
+                    ? "Formato DD/MM/AAAA"
+                    : "Opcional. Formato DD/MM/AAAA"
+                }
+                icon={<Calendar size={20} />}
+                fullWidth
+                {...register("fecha_notificacion")}
+              />
 
               <Controller
                 control={control}
@@ -240,11 +324,8 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                     placeholder="Seleccione el medio"
                     helperText="Solo se permiten: CORREO, PRESENCIAL, VIRTUAL"
                     fullWidth
-                    error={errors.medio_comunicacion?.message?.toString()}
                     value={field.value}
-                    onChange={(value) =>
-                      field.onChange(value as MedioComunicacion)
-                    }
+                    onChange={field.onChange}
                   />
                 )}
               />
@@ -258,7 +339,7 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
             </CardBody>
           </Card>
 
-          {/* Quien recepciona */}
+          {/* Pasos 30 y 31: quien recepciona */}
           <Card className="form-section form-section-full">
             <CardBody>
               <div className="section-header">
@@ -299,8 +380,8 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
           <Card className="selection-summary">
             <CardBody>
               <div className="summary-header">
-                <FileText className="summary-icon" size={18} />
-                <h4>Resumen de la resolución</h4>
+                <CheckCircle className="summary-icon" />
+                <h4>Reconsideración Completa</h4>
               </div>
               <div className="summary-grid">
                 <div className="summary-item">
@@ -310,49 +391,21 @@ export const ResolucionStep: React.FC<ResolucionStepProps> = ({
                   </span>
                 </div>
                 <div className="summary-item">
-                  <strong>Notificación:</strong>
-                  {notificacionCompleta ? (
-                    <span>
-                      {watched.fecha_notificacion} · {watched.medio_comunicacion}
-                    </span>
-                  ) : (
-                    <span className="summary-pendiente">Pendiente (opcional)</span>
-                  )}
+                  <strong>Decisión:</strong>
+                  <span>{watched.decision_resolucion}</span>
                 </div>
                 <div className="summary-item">
-                  <strong>Recepciona:</strong>
-                  {notificacionCompleta ? (
-                    <span>
-                      {watched.dni_recepciona} · {watched.apellidos_nombres}
-                    </span>
-                  ) : (
-                    <span className="summary-pendiente">—</span>
-                  )}
+                  <strong>Notificación:</strong>
+                  <span>
+                    {notificacionCompleta
+                      ? `${watched.fecha_notificacion} · ${watched.medio_comunicacion}`
+                      : "Pendiente"}
+                  </span>
                 </div>
               </div>
             </CardBody>
           </Card>
         )}
-
-        <Card className="help-section">
-          <CardBody>
-            <h5>💡 Información importante</h5>
-            <div className="help-grid">
-              <div className="help-item">
-                <strong>N° Resolución:</strong>
-                <span>4 dígitos. Ejemplo: 12 → 0012</span>
-              </div>
-              <div className="help-item">
-                <strong>Año:</strong>
-                <span>El año actual se carga por defecto y es editable</span>
-              </div>
-              <div className="help-item">
-                <strong>DNI:</strong>
-                <span>Entre 5 y 10 caracteres alfanuméricos</span>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
       </form>
     </div>
   );

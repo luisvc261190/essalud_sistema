@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
 import {
   Search,
   Plus,
@@ -12,16 +13,25 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Layers,
+  X,
 } from "lucide-react";
 import { Card, CardBody, Button, Alert, Badge } from "../ui";
 import {
-  formatNIT,
-  formatExpSGD,
-  formatDNI,
+  MIN_BUSQUEDA,
+  MAX_BUSQUEDA,
+  PARAMETRO_BUSQUEDA,
   formatDisplayDate,
-  validators,
+  normalizarBusqueda,
+  resaltar,
+  terminoBusqueda,
+  type CriterioBusqueda,
 } from "../../utils/formatters";
-import { consultasEndpoints } from "../../services/endpoints";
+import {
+  consultasEndpoints,
+  type ConsultaOpciones,
+} from "../../services/endpoints";
+import { getErrorMessage } from "../../services/api";
 import type { SolicitudResumen } from "../../types";
 import "./ProcesoNuevoStep.css";
 
@@ -33,18 +43,49 @@ interface ProcesoNuevoStepProps {
   ) => void;
 }
 
-type Criterio =
-  | "nit"
-  | "exp_sgd"
-  | "dni_ce"
-  | "asegurado_titular";
-
-const CRITERIOS: { value: Criterio; label: string; icon: React.ReactNode }[] = [
+const CRITERIOS: {
+  value: CriterioBusqueda;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
+  { value: "todos", label: "Todos", icon: <Layers size={18} /> },
   { value: "nit", label: "NIT", icon: <Building size={18} /> },
   { value: "exp_sgd", label: "EXP SGD", icon: <Hash size={18} /> },
   { value: "dni_ce", label: "DNI/C.E.", icon: <IdCard size={18} /> },
-  { value: "asegurado_titular", label: "Asegurado Titular", icon: <User size={18} /> },
+  {
+    value: "asegurado_titular",
+    label: "Asegurado Titular",
+    icon: <User size={18} />,
+  },
 ];
+
+const PLACEHOLDERS: Record<CriterioBusqueda, string> = {
+  todos: "NIT, EXP SGD, DNI/C.E. o asegurado titular",
+  nit: "XXXX-XXXX-NIT-XXXXXXX",
+  exp_sgd: "0".repeat(16),
+  dni_ce: "Documento de identidad",
+  asegurado_titular: "Nombres y apellidos del asegurado",
+};
+
+const AYUDA: Record<CriterioBusqueda, string> = {
+  todos: "Busca a la vez en los cuatro campos. Los resultados se actualizan mientras escribe.",
+  nit: "Escriba los dígitos del NIT; se completan con ceros a la izquierda (12 → 0000012).",
+  exp_sgd: "16 dígitos, siempre inicia en 0.",
+  dni_ce: "Entre 5 y 10 caracteres alfanuméricos.",
+  asegurado_titular: "Mínimo 3 caracteres; coincidencia parcial.",
+};
+
+/**
+ * Espera antes de consultar al backend mientras el usuario escribe.
+ *
+ * Antes eran 300 ms, que se Sumaban a los ~400 ms de red y se convirtian en
+ * mas de un segundo de espera. 120 ms sigue absorbiendo la pulsacion rapida sin
+ * añadir demora perceptible, y cada peticion que se lanza antes se cancela.
+ */
+const DEBOUNCE_MS = 120;
+/** Al borrar y retipar, el resultado sale de la caché sin volver a pedirlo. */
+const CACHE_BUSQUEDA_MS = 5_000;
+const MAX_RESULTADOS = 25;
 
 export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
   onNext,
@@ -53,7 +94,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
   const [selected, setSelected] = useState<boolean | null>(null);
 
   // Estado de búsqueda (flujo NO)
-  const [criterio, setCriterio] = useState<Criterio>("nit");
+  const [criterio, setCriterio] = useState<CriterioBusqueda>("nit");
   const [valor, setValor] = useState("");
   const [resultados, setResultados] = useState<SolicitudResumen[]>([]);
   const [busqueTotal, setBusqueTotal] = useState(false);
@@ -61,6 +102,18 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
   const [busqueError, setBusqueError] = useState("");
   const [seleccionado, setSeleccionado] = useState<SolicitudResumen | null>(null);
   const [recurso, setRecurso] = useState<"reconsideracion" | "apelacion" | null>(null);
+
+  // Descarta respuestas que llegan después de una escritura más reciente.
+  const peticionActual = useRef(0);
+  // Cancela la petición en vuelo: mientras el usuario escribe no hay que
+  // esperar a que terminen las anteriores.
+  const abortador = useRef<AbortController | null>(null);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const termino = terminoBusqueda(criterio, valor);
+  const hayBusqueda = termino.length > 0;
+  const esperandoMinimo = valor.trim().length > 0 && !hayBusqueda;
 
   const handleSelection = (esNuevo: boolean) => {
     setSelected(esNuevo);
@@ -76,61 +129,91 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
     }
   };
 
+  const buscar = useCallback(
+    async (opciones: ConsultaOpciones = {}) => {
+      if (!termino) return;
+      const id = ++peticionActual.current;
+      abortador.current?.abort();
+      const control = new AbortController();
+      abortador.current = control;
+      setBuscando(true);
+      try {
+        const response = await consultasEndpoints.buscar(
+          {
+            [PARAMETRO_BUSQUEDA[criterio]]: termino,
+            page: 1,
+            page_size: MAX_RESULTADOS,
+            orden_campo: "fecha_recepcion",
+            orden_dir: "desc",
+          },
+          { ...opciones, signal: control.signal }
+        );
+        if (id !== peticionActual.current) return;
+        setResultados(response.items);
+        setBusqueTotal(true);
+        setBusqueError("");
+      } catch (err) {
+        if (id !== peticionActual.current) return;
+        if (axios.isCancel(err)) return; // el usuario siguió escribiendo
+        setResultados([]);
+        setBusqueTotal(false);
+        setBusqueError(getErrorMessage(err));
+      } finally {
+        if (id === peticionActual.current) setBuscando(false);
+      }
+    },
+    [criterio, termino]
+  );
+
+  // Búsqueda en tiempo real: se relanza a los DEBOUNCE_MS de dejar de escribir.
+  useEffect(() => {
+    if (selected !== false) return;
+    if (temporizador.current) clearTimeout(temporizador.current);
+    if (!hayBusqueda) return;
+
+    temporizador.current = setTimeout(
+      () => buscar({ cacheTTL: CACHE_BUSQUEDA_MS }),
+      DEBOUNCE_MS
+    );
+
+    return () => {
+      if (temporizador.current) clearTimeout(temporizador.current);
+    };
+  }, [selected, hayBusqueda, buscar]);
+
+  // Si el paso se abandona, se cancela lo que estuviera en vuelo.
+  useEffect(() => () => abortador.current?.abort(), []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    if (criterio === "nit") setValor(formatNIT(raw));
-    else if (criterio === "exp_sgd") setValor(formatExpSGD(raw));
-    else if (criterio === "dni_ce") setValor(formatDNI(raw));
-    else setValor(raw);
+    const siguiente = normalizarBusqueda(criterio, e.target.value);
+    setValor(siguiente);
     setSeleccionado(null);
     setRecurso(null);
-    setBusqueTotal(false);
-  };
-
-  const validarValor = (): string | null => {
-    const v = valor.trim();
-    if (!v) return "Ingrese un valor de búsqueda";
-    if (criterio === "nit" && !validators.nit(v))
-      return "El NIT debe tener el formato XXXX-XXXX-NIT-XXXXXXX";
-    if (criterio === "exp_sgd" && !validators.expSGD(v))
-      return "El EXP SGD debe tener 16 dígitos e iniciar con 0";
-    if (criterio === "dni_ce" && !validators.dniCE(v))
-      return "El DNI/C.E. debe tener entre 5 y 10 caracteres alfanuméricos";
-    if (criterio === "asegurado_titular" && v.length < 3)
-      return "Ingrese al menos 3 caracteres";
-    return null;
-  };
-
-  const handleBuscar = async () => {
-    const error = validarValor();
-    if (error) {
-      setBusqueError(error);
-      return;
+    // Si el texto ya no alcanza para discriminar, se retiran los resultados
+    // anteriores en el manejador y no dentro del efecto.
+    if (terminoBusqueda(criterio, siguiente) === "") {
+      cancelarBusqueda();
     }
-    setBusqueError("");
-    setBuscando(true);
+  };
+
+  /** Descarta los resultados en curso y limpia la lista. */
+  const cancelarBusqueda = () => {
+    peticionActual.current++;
+    abortador.current?.abort();
+    if (temporizador.current) clearTimeout(temporizador.current);
     setResultados([]);
     setBusqueTotal(false);
+    setBuscando(false);
+  };
+
+  const handleCriterioChange = (c: CriterioBusqueda) => {
+    setCriterio(c);
+    setValor("");
+    cancelarBusqueda();
+    setBusqueError("");
     setSeleccionado(null);
     setRecurso(null);
-
-    try {
-      const response = await consultasEndpoints.buscar({
-        [criterio]: valor.trim(),
-        page: 1,
-        page_size: 25,
-        orden_campo: "fecha_recepcion",
-        orden_dir: "desc",
-      });
-      setResultados(response.items);
-      setBusqueTotal(true);
-    } catch (err) {
-      setBusqueError(
-        err instanceof Error ? err.message : "Error al buscar la solicitud"
-      );
-    } finally {
-      setBuscando(false);
-    }
+    inputRef.current?.focus();
   };
 
   const handleSeleccionarFila = (solicitud: SolicitudResumen) => {
@@ -146,6 +229,30 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
     }
   };
 
+  /** Trozos de un texto con la coincidencia resaltada. */
+  const renderResaltado = (
+    texto: string | null | undefined,
+    columna: CriterioBusqueda
+  ) => {
+    if (!hayBusqueda) return texto;
+    const useCriterio = criterio === "todos" ? columna : criterio;
+    const trozos = resaltar(texto, useCriterio, termino);
+    if (!trozos) return texto;
+    return (
+      <>
+        {trozos.map((t, i) =>
+          t.coincide ? (
+            <mark key={i} className="resultado-resalte">
+              {t.texto}
+            </mark>
+          ) : (
+            <span key={i}>{t.texto}</span>
+          )
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="proceso-nuevo-step">
       <div className="proceso-options">
@@ -155,6 +262,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
         >
           <CardBody>
             <button
+              type="button"
               className="proceso-option-button"
               onClick={() => handleSelection(true)}
             >
@@ -189,6 +297,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
         >
           <CardBody>
             <button
+              type="button"
               className="proceso-option-button"
               onClick={() => handleSelection(false)}
             >
@@ -238,8 +347,8 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
               <div>
                 <h4>Buscar Trámite Existente</h4>
                 <p>
-                  Seleccione el criterio, ingrese el valor y elija el recurso
-                  a registrar
+                  Los resultados aparecen mientras escribe. Seleccione la fila
+                  coincidente y el recurso que desea registrar.
                 </p>
               </div>
             </div>
@@ -250,17 +359,11 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
             {CRITERIOS.map((c) => (
               <button
                 key={c.value}
+                type="button"
                 className={`criterio-btn ${
                   criterio === c.value ? "criterio-btn-active" : ""
                 }`}
-                onClick={() => {
-                  setCriterio(c.value);
-                  setValor("");
-                  setSeleccionado(null);
-                  setRecurso(null);
-                  setBusqueTotal(false);
-                  setBusqueError("");
-                }}
+                onClick={() => handleCriterioChange(c.value)}
               >
                 {c.icon}
                 <span>{c.label}</span>
@@ -268,29 +371,48 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
             ))}
           </div>
 
-          {/* Input + botón */}
+          {/* Input: la búsqueda es en tiempo real, el botón solo la acelera */}
           <div className="busqueda-input-row">
             <div className="busqueda-input">
               <Search size={18} className="busqueda-input-icon" />
               <input
+                ref={inputRef}
                 type="text"
                 value={valor}
                 onChange={handleInputChange}
-                placeholder={
-                  criterio === "nit"
-                    ? "XXXX-XXXX-NIT-XXXXXXX"
-                    : criterio === "exp_sgd"
-                    ? "0" + "0".repeat(15)
-                    : criterio === "dni_ce"
-                    ? "Documento de identidad"
-                    : "Nombres y apellidos del asegurado"
-                }
-                onKeyDown={(e) => e.key === "Enter" && handleBuscar()}
+                placeholder={PLACEHOLDERS[criterio]}
+                maxLength={MAX_BUSQUEDA[criterio]}
+                autoComplete="off"
+                spellCheck={false}
+                aria-label="Texto de búsqueda"
               />
+              {buscando && (
+                <Loader2
+                  size={16}
+                  className="busqueda-input-spin spin"
+                  aria-label="Buscando"
+                />
+              )}
+              {valor.length > 0 && !buscando && (
+                <button
+                  type="button"
+                  className="busqueda-input-clear"
+                  onClick={() => {
+                    setValor("");
+                    cancelarBusqueda();
+                    setSeleccionado(null);
+                    setRecurso(null);
+                  }}
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
             <Button
-              onClick={handleBuscar}
+              onClick={() => buscar({ skipCache: true })}
               loading={buscando}
+              disabled={!hayBusqueda}
               icon={<Search size={18} />}
             >
               Buscar
@@ -298,11 +420,13 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
           </div>
 
           <div className="busqueda-formato">
-            {criterio === "nit" &&
-              "Formato: XXXX-XXXX-NIT-XXXXXXX (se autocompleta con ceros)"}
-            {criterio === "exp_sgd" && "16 dígitos, debe iniciar con 0"}
-            {criterio === "dni_ce" && "Entre 5 y 10 caracteres alfanuméricos"}
-            {criterio === "asegurado_titular" && "Mínimo 3 caracteres"}
+            {AYUDA[criterio]}
+            {esperandoMinimo && (
+              <span className="consulta-formato-aviso">
+                {" "}
+                Mínimo {MIN_BUSQUEDA[criterio]} caracteres para este criterio.
+              </span>
+            )}
           </div>
 
           {busqueError && (
@@ -313,6 +437,15 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
           )}
 
           {/* Resultados */}
+          {hayBusqueda && !busqueTotal && !buscando && (
+            <div className="busqueda-resultados">
+              <div className="resultados-vacio">
+                <Search size={32} />
+                <p>Escriba al menos {MIN_BUSQUEDA[criterio]} caracteres para buscar</p>
+              </div>
+            </div>
+          )}
+
           {busqueTotal && !buscando && (
             <div className="busqueda-resultados">
               <div className="resultados-header">
@@ -352,10 +485,21 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
                             }`}
                             onClick={() => handleSeleccionarFila(s)}
                           >
-                            <td className="resultado-nit">{s.nit}</td>
-                            <td className="resultado-mono">{s.exp_sgd}</td>
-                            <td className="resultado-mono">{s.dni_ce}</td>
-                            <td>{s.asegurado_titular}</td>
+                            <td className="resultado-nit">
+                              {renderResaltado(s.nit, "nit")}
+                            </td>
+                            <td className="resultado-mono">
+                              {renderResaltado(s.exp_sgd, "exp_sgd")}
+                            </td>
+                            <td className="resultado-mono">
+                              {renderResaltado(s.dni_ce, "dni_ce")}
+                            </td>
+                            <td>
+                              {renderResaltado(
+                                s.asegurado_titular,
+                                "asegurado_titular"
+                              )}
+                            </td>
                             <td>
                               <Badge
                                 variant={s.tipo_tramite === "SEGURO" ? "primary" : "secondary"}
@@ -381,6 +525,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
                           {seleccionado.nit}
                         </span>
                         <button
+                          type="button"
                           onClick={() => setSeleccionado(null)}
                           className="recurso-limpiar"
                           aria-label="Quitar selección"
@@ -396,6 +541,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
                         </h5>
                         <div className="recurso-opciones">
                           <button
+                            type="button"
                             className={`recurso-option ${
                               recurso === "reconsideracion" ? "recurso-option-active" : ""
                             }`}
@@ -411,6 +557,7 @@ export const ProcesoNuevoStep: React.FC<ProcesoNuevoStepProps> = ({
                             </p>
                           </button>
                           <button
+                            type="button"
                             className={`recurso-option ${
                               recurso === "apelacion" ? "recurso-option-active" : ""
                             }`}

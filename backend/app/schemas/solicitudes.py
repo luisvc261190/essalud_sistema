@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing import Literal
 
 from app.core.constants import (
@@ -69,30 +69,75 @@ class DatosSubsidioIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
 
-class ResolucionIn(BaseModel):
-    numero_resolucion: str = Field(min_length=1, max_length=4)
-    anio: int
-    fecha_emision: date
-    fecha_notificacion: date
-    medio_comunicacion: MedioComunicacion
-    dni_recepciona: str = Field(min_length=DNI_CE_MIN, max_length=DNI_CE_MAX)
-    apellidos_nombres: str = Field(min_length=1, max_length=MAX_APELLIDOS_NOMBRES)
+class BloqueNotificacionIn(BaseModel):
+    """Datos de notificacion (opcionales).
+
+    El cliente puede grabar la resolucion o la reconsideracion sin necesidad de
+    llegar a la notificacion. Si se informa alguno de los campos, deben estar
+    completos los cuatro.
+    """
+
+    fecha_notificacion: date | None = None
+    medio_comunicacion: MedioComunicacion | None = None
+    dni_recepciona: str | None = Field(
+        default=None, min_length=DNI_CE_MIN, max_length=DNI_CE_MAX
+    )
+    apellidos_nombres: str | None = Field(
+        default=None, min_length=1, max_length=MAX_APELLIDOS_NOMBRES
+    )
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
+    @model_validator(mode="after")
+    def _validar_bloque(self) -> "BloqueNotificacionIn":
+        informados = [
+            self.fecha_notificacion,
+            self.medio_comunicacion,
+            self.dni_recepciona,
+            self.apellidos_nombres,
+        ]
+        if any(v is not None for v in informados) and not all(
+            v is not None for v in informados
+        ):
+            raise ValueError(
+                "La notificacion es opcional, pero si se ingresa algun dato deben "
+                "completarse fecha, medio de comunicacion, DNI y apellidos y nombres."
+            )
+        return self
 
-class ReconsideracionIn(BaseModel):
+
+class ResolucionIn(BloqueNotificacionIn):
+    numero_resolucion: str = Field(min_length=1, max_length=4)
+    anio: int
+    fecha_emision: date
+
+    @model_validator(mode="after")
+    def _validar_fechas(self) -> "ResolucionIn":
+        if (
+            self.fecha_notificacion
+            and self.fecha_emision
+            and self.fecha_notificacion < self.fecha_emision
+        ):
+            raise ValueError("La notificacion no puede ser anterior a la emision.")
+        return self
+
+
+class ReconsideracionIn(BloqueNotificacionIn):
     fecha_recepcion: date
     numero_resolucion: str = Field(min_length=1, max_length=4)
     anio: int
     fecha_emision: date
     decision_resolucion: DecisionReconsideracion
-    fecha_notificacion: date
-    medio_comunicacion: MedioComunicacion
-    dni_recepciona: str = Field(min_length=DNI_CE_MIN, max_length=DNI_CE_MAX)
-    apellidos_nombres: str = Field(min_length=1, max_length=MAX_APELLIDOS_NOMBRES)
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    @model_validator(mode="after")
+    def _validar_fechas(self) -> "ReconsideracionIn":
+        if (
+            self.fecha_notificacion
+            and self.fecha_emision
+            and self.fecha_notificacion < self.fecha_emision
+        ):
+            raise ValueError("La notificacion no puede ser anterior a la emision.")
+        return self
 
 
 class ApelacionIn(BaseModel):
@@ -140,10 +185,10 @@ class ResolucionOut(BaseModel):
     numero_resolucion: str
     anio: int
     fecha_emision: date
-    fecha_notificacion: date
-    medio_comunicacion: str
-    dni_recepciona: str
-    apellidos_nombres: str
+    fecha_notificacion: date | None = None
+    medio_comunicacion: str | None = None
+    dni_recepciona: str | None = None
+    apellidos_nombres: str | None = None
 
 
 class ReconsideracionOut(BaseModel):
@@ -152,10 +197,10 @@ class ReconsideracionOut(BaseModel):
     anio: int
     fecha_emision: date
     decision_resolucion: str
-    fecha_notificacion: date
-    medio_comunicacion: str
-    dni_recepciona: str
-    apellidos_nombres: str
+    fecha_notificacion: date | None = None
+    medio_comunicacion: str | None = None
+    dni_recepciona: str | None = None
+    apellidos_nombres: str | None = None
 
 
 class ApelacionOut(BaseModel):

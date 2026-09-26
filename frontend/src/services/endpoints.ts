@@ -115,19 +115,40 @@ export interface ConsultaParams {
   exp_sgd?: string;
   dni_ce?: string;
   asegurado_titular?: string;
+  /** Búsqueda libre: coincide con cualquiera de los cuatro campos. */
+  q?: string;
   page?: number;
   page_size?: number;
   orden_campo?: string;
   orden_dir?: "asc" | "desc";
 }
 
+export interface ConsultaOpciones {
+  /** Cancela la petición en vuelo cuando el usuario sigue escribiendo. */
+  signal?: AbortSignal;
+  /**
+   * Vigencia en caché de esta respuesta. El buscador usa una ventana corta:
+   * así, al borrar caracteres y volver a escribir lo mismo, el resultado sale
+   * al instante sin volver a preguntarle al servidor.
+   */
+  cacheTTL?: number;
+  /** Fuerza la consulta al servidor aunque haya una copia en caché. */
+  skipCache?: boolean;
+}
+
 export const consultasEndpoints = {
   buscar: async (
-    params: ConsultaParams
+    params: ConsultaParams,
+    opciones: ConsultaOpciones = {}
   ): Promise<PaginatedResponse<SolicitudResumen>> => {
     const response = await api.get<PaginatedResponse<SolicitudResumen>>(
       "/consultas",
-      { params }
+      {
+        params,
+        signal: opciones.signal,
+        cacheTTL: opciones.cacheTTL,
+        skipCache: opciones.skipCache,
+      }
     );
     return response.data;
   },

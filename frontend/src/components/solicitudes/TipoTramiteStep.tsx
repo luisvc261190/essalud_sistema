@@ -59,8 +59,6 @@ export const TipoTramiteStep: React.FC<TipoTramiteStepProps> = ({
   return (
     <div className="tipo-tramite-step">
       <div className="step-intro">
-        <h3>Tipo de Trámite</h3>
-        <p>Seleccione el tipo de trámite que desea registrar</p>
         {selectedTipo && (
           <Badge variant="success" className="selection-badge">
             <CheckCircle size={16} />

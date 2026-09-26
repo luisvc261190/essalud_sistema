@@ -233,64 +233,81 @@
   line-height: 1.5;
 }
 
-/* Selection Summary */
-.selection-summary {
-  background: linear-gradient(135deg, var(--color-success) 0%, #059669 100%);
-  color: var(--text-inverse);
-  border: none;
+/* Selection Summary
+
+   Estas reglas se acotan a `.datos-subsidio-step`. Antes `.selection-summary`
+   era global y se repetía idéntica en DatosSeguroStep.css y
+   TipoTramiteStep.css, así que el color dependía del orden en que el navegador
+   cargara los CSS y se filtraba a otros pasos del wizard. */
+.datos-subsidio-step .selection-summary {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
+  border-left: 3px solid var(--color-primary);
+  box-shadow: none;
   animation: slideInUp var(--transition-base);
 }
 
-.summary-header {
+.datos-subsidio-step .summary-header {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.summary-icon {
-  width: 48px;
-  height: 48px;
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-lg);
+.datos-subsidio-step .summary-icon {
+  width: auto;
+  height: auto;
+  background: none;
+  padding: 0;
+  border-radius: 0;
   flex-shrink: 0;
+  color: var(--color-primary);
 }
 
-.summary-header h4 {
-  font-size: 1.25rem;
-  font-weight: 700;
+.datos-subsidio-step .summary-header h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
   margin: 0;
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
-.summary-grid {
+.datos-subsidio-step .summary-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
 }
 
-.summary-item {
+.datos-subsidio-step .summary-item {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.125rem;
+  min-width: 0;
 }
 
-.summary-item-full {
+.datos-subsidio-step .summary-item-full {
   grid-column: 1 / -1;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-light);
 }
 
-.summary-item strong {
-  font-size: 0.875rem;
+.datos-subsidio-step .summary-item strong {
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--text-inverse);
-  opacity: 0.9;
+  color: var(--text-tertiary);
+  opacity: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.summary-item span {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-inverse);
+.datos-subsidio-step .summary-item span {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  /* El motivo puede ser un texto largo sin espacios: lo parte en varias lineas
+     en lugar de desbordar la tarjeta. */
+  overflow-wrap: anywhere;
 }
 
 /* Help Section */
@@ -377,7 +394,7 @@
     grid-template-columns: 1fr;
   }
   
-  .summary-grid {
+  .datos-subsidio-step .summary-grid {
     grid-template-columns: 1fr;
   }
   
@@ -401,7 +418,7 @@
     font-size: 1rem;
   }
   
-  .summary-header {
+  .datos-subsidio-step .summary-header {
     flex-direction: column;
     align-items: center;
     text-align: center;

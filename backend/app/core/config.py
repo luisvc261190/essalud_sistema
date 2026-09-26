@@ -21,6 +21,13 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    # Pool de conexiones. La base de datos esta en otra region, asi que cada
+    # viaje de ida y vuelta se nota. `DB_POOL_PRE_PING` apagado elimina un viaje
+    # por peticion (la sesion reintenta sola si la conexion estaba cerrada);
+    # se puede volver a encender poniendo DB_POOL_PRE_PING=true.
+    DB_POOL_PRE_PING: bool = False
+    DB_POOL_RECYCLE: int = 600
+
     SEED_SUPERADMIN_USERNAME: str = ""
     SEED_SUPERADMIN_PASSWORD: str = ""
     SEED_SUPERADMIN_NOMBRES: str = "Super"

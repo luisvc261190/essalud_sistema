@@ -58,6 +58,15 @@
   border-left-color: var(--color-warning);
 }
 
+.resumen-recurso {
+  border-left-color: #7c3aed;
+}
+
+.resumen-pendiente {
+  color: #b45309;
+  font-weight: 600;
+}
+
 .resumen-section-header {
   display: flex;
   align-items: center;
@@ -85,6 +94,10 @@
 
 .resumen-resolucion .resumen-section-icon {
   color: var(--color-warning);
+}
+
+.resumen-recurso .resumen-section-icon {
+  color: #7c3aed;
 }
 
 .resumen-grid {

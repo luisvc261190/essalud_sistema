@@ -45,26 +45,30 @@ export interface DatosSubsidio {
   decision_resolucion: DecisionSubsidio;
 }
 
-export interface Resolucion {
+/**
+ * Bloque de notificacion. Es opcional: la resolucion y la reconsideracion se
+ * pueden grabar sin necesidad de llegar a la notificacion. Si se informa
+ * alguno de los campos, el backend exige los cuatro.
+ */
+export interface Notificacion {
+  fecha_notificacion?: string | null;
+  medio_comunicacion?: MedioComunicacion | null;
+  dni_recepciona?: string | null;
+  apellidos_nombres?: string | null;
+}
+
+export interface Resolucion extends Notificacion {
   numero_resolucion: string;
   anio: number;
   fecha_emision: string;
-  fecha_notificacion: string;
-  medio_comunicacion: MedioComunicacion;
-  dni_recepciona: string;
-  apellidos_nombres: string;
 }
 
-export interface Reconsideracion {
+export interface Reconsideracion extends Notificacion {
   fecha_recepcion: string;
   numero_resolucion: string;
   anio: number;
   fecha_emision: string;
   decision_resolucion: DecisionReconsideracion;
-  fecha_notificacion: string;
-  medio_comunicacion: MedioComunicacion;
-  dni_recepciona: string;
-  apellidos_nombres: string;
 }
 
 export interface Apelacion {

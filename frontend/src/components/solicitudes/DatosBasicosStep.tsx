@@ -3,12 +3,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Building, FileText, Calendar, User, CreditCard } from "lucide-react";
-import { Input, Card, CardBody } from "../ui";
-import { formatNIT, formatExpSGD, formatRUC, formatDNI } from "../../utils/formatters";
+import { Input, Card, CardBody, NITInput } from "../ui";
+import {
+  formatExpSGD,
+  formatRUC,
+  formatDNI,
+} from "../../utils/formatters";
 import "./DatosBasicosStep.css";
 
 const datosBasicosSchema = z.object({
-  nit: z.string().min(1, "El NIT es requerido"),
+  nit: z
+    .string()
+    .regex(
+      /^\d{4}-\d{4}-NIT-\d{7}$/,
+      "El NIT debe tener el formato XXXX-XXXX-NIT-XXXXXXX"
+    ),
   exp_sgd: z.string().regex(/^0\d{15}$/, "EXP SGD debe tener 16 dígitos y empezar con 0"),
   fecha_recepcion: z.string().min(1, "La fecha de recepción es requerida"),
   ruc: z.string().regex(/^\d{11}$/, "RUC debe tener exactamente 11 dígitos"),
@@ -46,11 +55,8 @@ export const DatosBasicosStep: React.FC<DatosBasicosStepProps> = ({ data, onChan
     return () => subscription.unsubscribe();
   }, [watch, onChange, isValid]);
 
-  // Formatear NIT automáticamente
-  const handleNITChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatNIT(e.target.value);
-    setValue("nit", formatted);
-  };
+  // El NIT lo lleva NITInput, que necesita controlar el cursor y por eso no
+  // puede pasar por `register`.
 
   // Formatear EXP SGD automáticamente
   const handleExpSGDChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,35 +76,72 @@ export const DatosBasicosStep: React.FC<DatosBasicosStepProps> = ({ data, onChan
     setValue("dni_ce", formatted);
   };
 
+  // Valor controlado del NIT.
+  const watchedNit = watch("nit") || "";
+
   return (
     <div className="datos-basicos-step">
-      <div className="step-intro">
-        <h3>Datos Básicos del Acto Administrativo</h3>
-        <p>Ingrese la información principal del trámite. Todos los campos son obligatorios.</p>
-      </div>
+
 
       <form className="datos-basicos-form">
         <div className="form-grid">
-          {/* NIT */}
+          {/* Orden del cliente: primero "INF. Del Expediente" y despues
+              "INF. De la Empresa". Los pasos 2 a 8 se respetan en el orden en
+              que aparecen: NIT(2), EXP SGD(3), FECHA(4), RUC(5),
+              ENTIDAD(6), DNI(7), ASEGURADO(8). */}
+          <Card className="form-section">
+            <CardBody>
+              <div className="section-header">
+                <FileText className="section-icon" />
+                <h4>Información del Expediente</h4>
+              </div>
+
+              {/* Paso 2 */}
+              <NITInput
+                value={watchedNit}
+                onValueChange={(valor) => setValue("nit", valor, { shouldValidate: true })}
+                onComplete={(valor) => setValue("nit", valor, { shouldValidate: true })}
+                error={errors.nit?.message}
+                required
+                fullWidth
+              />
+              <br />
+
+              {/* Paso 3 */}
+              <Input
+                label="EXP SGD"
+                placeholder="0000000000000000"
+                helperText="16 números, siempre empieza con 0"
+                icon={<FileText size={20} />}
+                fullWidth
+                error={errors.exp_sgd?.message}
+                {...register("exp_sgd", {
+                  onChange: handleExpSGDChange,
+                })}
+              />
+              <br />
+              {/* Paso 4 */}
+              <Input
+                label="Fecha de Recepción"
+                type="date"
+                helperText="Formato DD/MM/AAAA"
+                icon={<Calendar size={20} />}
+                fullWidth
+                error={errors.fecha_recepcion?.message}
+                {...register("fecha_recepcion")}
+                required
+              />
+            </CardBody>
+          </Card>
+
+          {/* Paso 5 y 6 */}
           <Card className="form-section">
             <CardBody>
               <div className="section-header">
                 <Building className="section-icon" />
                 <h4>Información de la Empresa</h4>
               </div>
-              
-              <Input
-                label="NIT"
-                placeholder="0000-0000-NIT-0000000"
-                helperText="Formato: XXXX-XXXX-NIT-XXXXXXX"
-                icon={<FileText size={20} />}
-                fullWidth
-                error={errors.nit?.message}
-                {...register("nit", {
-                  onChange: handleNITChange,
-                })}
-              />
-              
+
               <Input
                 label="RUC"
                 placeholder="Ingrese 11 dígitos"
@@ -110,7 +153,8 @@ export const DatosBasicosStep: React.FC<DatosBasicosStepProps> = ({ data, onChan
                   onChange: handleRUCChange,
                 })}
               />
-              
+              <br />
+
               <Input
                 label="Entidad Empleadora"
                 placeholder="Nombre de la entidad empleadora"
@@ -124,46 +168,14 @@ export const DatosBasicosStep: React.FC<DatosBasicosStepProps> = ({ data, onChan
             </CardBody>
           </Card>
 
-          {/* EXP SGD y Fecha */}
-          <Card className="form-section">
-            <CardBody>
-              <div className="section-header">
-                <FileText className="section-icon" />
-                <h4>Información del Expediente</h4>
-              </div>
-              
-              <Input
-                label="EXP SGD"
-                placeholder="0000000000000000"
-                helperText="16 números, debe empezar con 0"
-                icon={<FileText size={20} />}
-                fullWidth
-                error={errors.exp_sgd?.message}
-                {...register("exp_sgd", {
-                  onChange: handleExpSGDChange,
-                })}
-              />
-              
-              <Input
-                label="Fecha de Recepción"
-                type="date"
-                helperText="Fecha en formato DD/MM/YYYY"
-                icon={<Calendar size={20} />}
-                fullWidth
-                error={errors.fecha_recepcion?.message}
-                {...register("fecha_recepcion")}
-              />
-            </CardBody>
-          </Card>
-
-          {/* Datos del Asegurado */}
+          {/* Paso 7 y 8 */}
           <Card className="form-section form-section-full">
             <CardBody>
               <div className="section-header">
                 <User className="section-icon" />
                 <h4>Datos del Asegurado</h4>
               </div>
-              
+
               <div className="asegurado-grid">
                 <Input
                   label="DNI/C.E."

@@ -1,6 +1,15 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, FileText, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CircleCheck,
+  FileText,
+  Gavel,
+  Scale,
+  AlertCircle,
+} from "lucide-react";
 import { Card, CardHeader, CardBody, Button, Alert } from "../components/ui";
 import { ProcesoNuevoStep } from "../components/solicitudes/ProcesoNuevoStep";
 import { DatosBasicosStep } from "../components/solicitudes/DatosBasicosStep";
@@ -8,24 +17,85 @@ import { TipoTramiteStep } from "../components/solicitudes/TipoTramiteStep";
 import { DatosSeguroStep } from "../components/solicitudes/DatosSeguroStep";
 import { DatosSubsidioStep } from "../components/solicitudes/DatosSubsidioStep";
 import { ResolucionStep } from "../components/solicitudes/ResolucionStep";
+import { ReconsideracionStep } from "../components/solicitudes/ReconsideracionStep";
+import { ApelacionStep } from "../components/solicitudes/ApelacionStep";
 import { ResumenStep } from "../components/solicitudes/ResumenStep";
-import type { SolicitudCreate, TipoTramite, Resolucion } from "../types";
+import type {
+  SolicitudCreate,
+  TipoTramite,
+  Resolucion,
+  Reconsideracion,
+  Apelacion,
+} from "../types";
 import { solicitudesEndpoints } from "../services/endpoints";
 import { getErrorMessage } from "../services/api";
 import "./NuevaSolicitud.css";
 
-type WizardStep = 
+type WizardStep =
   | "proceso-nuevo"
-  | "datos-basicos" 
+  | "datos-basicos"
   | "tipo-tramite"
   | "datos-seguro"
   | "datos-subsidio"
   | "resolucion"
+  | "recurso"
+  | "reconsideracion"
+  | "apelacion"
   | "resumen";
+
+type RecursoElegido = "reconsideracion" | "apelacion" | "ninguno";
+
+/** Opciones del paso de recurso, en el orden en que se muestran. */
+const OPCIONES_RECURSO = [
+  {
+    valor: "reconsideracion",
+    titulo: "Reconsideración",
+    pasos: "Pasos 23 al 31",
+    descripcion:
+      "No está de acuerdo con la resolución y pide que sea revisada.",
+  },
+  {
+    valor: "apelacion",
+    titulo: "Apelación",
+    pasos: "Pasos 32 al 34",
+    descripcion:
+      "La reconsideración no resolvió su caso y pide la revisión de la instancia superior.",
+  },
+  {
+    valor: "ninguno",
+    titulo: "Ningún recurso",
+    pasos: null,
+    descripcion:
+      "La resolución queda registrada sin recurso. Podrá registrarlo después.",
+  },
+] as const satisfies readonly {
+  valor: RecursoElegido;
+  titulo: string;
+  pasos: string | null;
+  descripcion: string;
+}[];
+
+const ICONO_RECURSO: Record<RecursoElegido, React.ReactNode> = {
+  reconsideracion: <Scale size={22} />,
+  apelacion: <Gavel size={22} />,
+  ninguno: <CircleCheck size={22} />,
+};
 
 interface WizardData extends Partial<SolicitudCreate> {
   esProcesoNuevo?: boolean;
+  recursoElegido?: RecursoElegido;
+  reconsideracion?: Reconsideracion;
+  apelacion?: Apelacion;
 }
+
+/** Mensaje de éxito según las partes que se registraron. */
+const buildMensajeConfirmacion = (data: WizardData): string => {
+  const partes = ["Solicitud y resolución"];
+  if (data.reconsideracion) partes.push("reconsideración");
+  if (data.apelacion) partes.push("apelación");
+  if (!data.resolucion?.fecha_notificacion) partes.push("notificación pendiente");
+  return `${partes.join(", ")} registradas exitosamente`;
+};
 
 export const NuevaSolicitud: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +103,33 @@ export const NuevaSolicitud: React.FC = () => {
   const [wizardData, setWizardData] = useState<WizardData>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  const opcionesRef = useRef<(HTMLButtonElement | null)[]>([]);
+
+  /**
+   * Navegación con flechas del grupo de opciones, como espera un radiogroup:
+   * mover el foco elige la opción y la marca, sin necesitar el ratón.
+   */
+  const manejarTecladoRecurso = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    indice: number
+  ) => {
+    const ultimo = OPCIONES_RECURSO.length - 1;
+    let destino: number | null = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      destino = indice === ultimo ? 0 : indice + 1;
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      destino = indice === 0 ? ultimo : indice - 1;
+    } else if (e.key === "Home") {
+      destino = 0;
+    } else if (e.key === "End") {
+      destino = ultimo;
+    }
+    if (destino === null) return;
+
+    e.preventDefault();
+    handleRecursoChange(OPCIONES_RECURSO[destino].valor);
+    opcionesRef.current[destino]?.focus();
+  };
 
   const steps: { key: WizardStep; title: string; description: string }[] = [
     {
@@ -66,6 +163,21 @@ export const NuevaSolicitud: React.FC = () => {
       description: "Datos de la resolución y notificación",
     },
     {
+      key: "recurso",
+      title: "Recurso",
+      description: "Elija el recurso que desea registrar",
+    },
+    {
+      key: "reconsideracion",
+      title: "Reconsideración",
+      description: "Recurso de reconsideración (pasos 23-31)",
+    },
+    {
+      key: "apelacion",
+      title: "Apelación",
+      description: "Recurso de apelación (pasos 32-34)",
+    },
+    {
       key: "resumen",
       title: "Resumen",
       description: "Revise y confirme la información",
@@ -74,25 +186,45 @@ export const NuevaSolicitud: React.FC = () => {
 
   const getVisibleSteps = (): typeof steps => {
     const baseSteps = ["proceso-nuevo", "datos-basicos", "tipo-tramite"];
-    
-    if (wizardData.tipo_tramite === "SEGURO") {
-      return steps.filter(step => 
-        baseSteps.includes(step.key) || 
-        ["datos-seguro", "resolucion", "resumen"].includes(step.key)
-      );
-    } else if (wizardData.tipo_tramite === "SUBSIDIO") {
-      return steps.filter(step => 
-        baseSteps.includes(step.key) || 
-        ["datos-subsidio", "resolucion", "resumen"].includes(step.key)
+    const cierreSteps = ["resolucion", "recurso", "resumen"];
+
+    // Tras la resolución se pregunta qué recurso se registra. Solo se muestra
+    // el formulario del recurso elegido, y ambos son posibles sin que el
+    // otro tenga que existir antes.
+    if (wizardData.recursoElegido === "reconsideracion") {
+      return steps.filter((step) =>
+        [...baseSteps, ...cierreSteps, "reconsideracion"].includes(step.key)
       );
     }
-    
-    return steps.filter(step => baseSteps.includes(step.key));
+    if (wizardData.recursoElegido === "apelacion") {
+      return steps.filter((step) =>
+        [...baseSteps, ...cierreSteps, "apelacion"].includes(step.key)
+      );
+    }
+    if (wizardData.resolucion) {
+      return steps.filter((step) => [...baseSteps, ...cierreSteps].includes(step.key));
+    }
+    if (wizardData.tipo_tramite === "SEGURO") {
+      return steps.filter(
+        (step) =>
+          baseSteps.includes(step.key) ||
+          ["datos-seguro", "resolucion", "resumen"].includes(step.key)
+      );
+    }
+    if (wizardData.tipo_tramite === "SUBSIDIO") {
+      return steps.filter(
+        (step) =>
+          baseSteps.includes(step.key) ||
+          ["datos-subsidio", "resolucion", "resumen"].includes(step.key)
+      );
+    }
+
+    return steps.filter((step) => baseSteps.includes(step.key));
   };
 
   const getCurrentStepIndex = (): number => {
     const visibleSteps = getVisibleSteps();
-    return visibleSteps.findIndex(step => step.key === currentStep);
+    return visibleSteps.findIndex((step) => step.key === currentStep);
   };
 
   const isStepComplete = (stepKey: WizardStep): boolean => {
@@ -100,7 +232,11 @@ export const NuevaSolicitud: React.FC = () => {
       case "proceso-nuevo":
         return wizardData.esProcesoNuevo !== undefined;
       case "datos-basicos":
-        return !!(wizardData.nit && wizardData.exp_sgd && wizardData.fecha_recepcion);
+        return !!(
+          wizardData.nit &&
+          wizardData.exp_sgd &&
+          wizardData.fecha_recepcion
+        );
       case "tipo-tramite":
         return !!wizardData.tipo_tramite;
       case "datos-seguro":
@@ -109,6 +245,12 @@ export const NuevaSolicitud: React.FC = () => {
         return wizardData.tipo_tramite === "SUBSIDIO" && !!wizardData.datos_subsidio;
       case "resolucion":
         return !!wizardData.resolucion;
+      case "recurso":
+        return wizardData.recursoElegido !== undefined;
+      case "reconsideracion":
+        return !!wizardData.reconsideracion;
+      case "apelacion":
+        return !!wizardData.apelacion;
       case "resumen":
         return true;
       default:
@@ -129,7 +271,7 @@ export const NuevaSolicitud: React.FC = () => {
 
     const visibleSteps = getVisibleSteps();
     const currentIndex = getCurrentStepIndex();
-    
+
     if (currentIndex < visibleSteps.length - 1) {
       setCurrentStep(visibleSteps[currentIndex + 1].key);
     }
@@ -140,7 +282,7 @@ export const NuevaSolicitud: React.FC = () => {
 
     const visibleSteps = getVisibleSteps();
     const currentIndex = getCurrentStepIndex();
-    
+
     if (currentIndex > 0) {
       setCurrentStep(visibleSteps[currentIndex - 1].key);
     }
@@ -149,7 +291,7 @@ export const NuevaSolicitud: React.FC = () => {
   const handleBack = () => goPrevious();
 
   const updateWizardData = (data: Partial<WizardData>) => {
-    setWizardData(prev => ({ ...prev, ...data }));
+    setWizardData((prev) => ({ ...prev, ...data }));
     setError("");
   };
 
@@ -159,7 +301,7 @@ export const NuevaSolicitud: React.FC = () => {
       updateWizardData({ esProcesoNuevo: false });
       return;
     }
-    
+
     updateWizardData({ esProcesoNuevo: true });
     setCurrentStep("datos-basicos");
   };
@@ -173,7 +315,7 @@ export const NuevaSolicitud: React.FC = () => {
 
   const handleTipoTramiteChange = (tipo: TipoTramite) => {
     updateWizardData({ tipo_tramite: tipo });
-    
+
     // Navegar automáticamente al siguiente paso según el tipo
     if (tipo === "SEGURO") {
       setCurrentStep("datos-seguro");
@@ -182,16 +324,41 @@ export const NuevaSolicitud: React.FC = () => {
     }
   };
 
+  /**
+   * Al elegir el recurso se descarta el formulario del otro, para que el
+   * guardado nunca intente enviar un recurso que el usuario no eligió.
+   */
+  const handleRecursoChange = (recurso: RecursoElegido) => {
+    updateWizardData({
+      recursoElegido: recurso,
+      reconsideracion: recurso === "reconsideracion" ? wizardData.reconsideracion : undefined,
+      apelacion: recurso === "apelacion" ? wizardData.apelacion : undefined,
+    });
+
+    if (recurso === "reconsideracion") {
+      setCurrentStep("reconsideracion");
+    } else if (recurso === "apelacion") {
+      setCurrentStep("apelacion");
+    } else {
+      setCurrentStep("resumen");
+    }
+  };
+
+  /**
+   * Guarda el expediente completo. Los recursos se registran después de crear
+   * la solicitud, porque el backend exige que la resolución y la
+   * reconsideración existan antes que el recurso siguiente.
+   */
   const handleSubmit = async () => {
     if (!wizardData.resolucion) {
       setError("Debe completar todos los datos de la resolución");
       return;
     }
 
-    try {
-      setLoading(true);
-      setError("");
+    setLoading(true);
+    setError("");
 
+    try {
       const solicitudData: SolicitudCreate = {
         nit: wizardData.nit!,
         exp_sgd: wizardData.exp_sgd!,
@@ -203,18 +370,32 @@ export const NuevaSolicitud: React.FC = () => {
         tipo_tramite: wizardData.tipo_tramite!,
         resolucion: wizardData.resolucion,
         // Solo incluir el campo correspondiente al tipo de trámite
-        ...(wizardData.tipo_tramite === "SEGURO" && { datos_seguro: wizardData.datos_seguro }),
-        ...(wizardData.tipo_tramite === "SUBSIDIO" && { datos_subsidio: wizardData.datos_subsidio }),
+        ...(wizardData.tipo_tramite === "SEGURO" && {
+          datos_seguro: wizardData.datos_seguro,
+        }),
+        ...(wizardData.tipo_tramite === "SUBSIDIO" && {
+          datos_subsidio: wizardData.datos_subsidio,
+        }),
       };
 
-      const result = await solicitudesEndpoints.crear(solicitudData);
-      
-      // Redirigir al detalle de la solicitud creada
-      navigate(`/solicitudes/${result.id}`, {
-        state: { message: "Solicitud creada exitosamente" }
-      });
-      
-    } catch (err) {
+      const creada = await solicitudesEndpoints.crear(solicitudData);
+
+      if (wizardData.reconsideracion) {
+        await solicitudesEndpoints.crearReconsideracion(
+          creada.id,
+          wizardData.reconsideracion
+        );
+      }
+
+      if (wizardData.apelacion) {
+        await solicitudesEndpoints.crearApelacion(creada.id, wizardData.apelacion);
+      }
+
+      navigate(`/solicitudes/${creada.id}`, {
+        state: {
+          message: buildMensajeConfirmacion(wizardData),
+        },
+      });    } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
@@ -230,7 +411,7 @@ export const NuevaSolicitud: React.FC = () => {
             onSeleccionarTramite={handleSeleccionarTramite}
           />
         );
-      
+
       case "datos-basicos":
         return (
           <DatosBasicosStep
@@ -238,7 +419,7 @@ export const NuevaSolicitud: React.FC = () => {
             onChange={updateWizardData}
           />
         );
-      
+
       case "tipo-tramite":
         return (
           <TipoTramiteStep
@@ -246,7 +427,7 @@ export const NuevaSolicitud: React.FC = () => {
             onChange={handleTipoTramiteChange}
           />
         );
-      
+
       case "datos-seguro":
         return (
           <DatosSeguroStep
@@ -254,7 +435,7 @@ export const NuevaSolicitud: React.FC = () => {
             onChange={(datos_seguro) => updateWizardData({ datos_seguro })}
           />
         );
-      
+
       case "datos-subsidio":
         return (
           <DatosSubsidioStep
@@ -262,13 +443,99 @@ export const NuevaSolicitud: React.FC = () => {
             onChange={(datos_subsidio) => updateWizardData({ datos_subsidio })}
           />
         );
-      
+
       case "resolucion":
         return (
           <ResolucionStep
             data={wizardData.resolucion ?? undefined}
+            notificacionOpcional
             onChange={(resolucion: Resolucion) =>
               updateWizardData({ resolucion })
+            }
+          />
+        );
+
+      case "recurso":
+        return (
+          <Card className="recurso-card">
+            <CardBody>
+              <div
+                className="recurso-opciones"
+                role="radiogroup"
+                aria-label="Qué recurso desea registrar"
+              >
+                {OPCIONES_RECURSO.map((opcion, indice) => {
+                  const activa = wizardData.recursoElegido === opcion.valor;
+                  return (
+                    <button
+                      key={opcion.valor}
+                      type="button"
+                      role="radio"
+                      tabIndex={activa || (!wizardData.recursoElegido && indice === 0) ? 0 : -1}
+                      aria-checked={activa}
+                      ref={(nodo) => {
+                        opcionesRef.current[indice] = nodo;
+                      }}
+                      className={`recurso-opcion${activa ? " recurso-opcion-activa" : ""}`}
+                      onClick={() => handleRecursoChange(opcion.valor)}
+                      onKeyDown={(e) => manejarTecladoRecurso(e, indice)}
+                    >
+                      <span className="recurso-opcion-icon" aria-hidden="true">
+                        {ICONO_RECURSO[opcion.valor]}
+                      </span>
+
+                      <span className="recurso-opcion-texto">
+                        <span className="recurso-opcion-titulo">
+                          {opcion.titulo}
+                        </span>
+                        <span className="recurso-opcion-descripcion">
+                          {opcion.descripcion}
+                        </span>
+                      </span>
+
+                      {opcion.pasos ? (
+                        <span className="recurso-opcion-pasos">
+                          {opcion.pasos}
+                        </span>
+                      ) : null}
+
+                      <span
+                        className="recurso-opcion-check"
+                        aria-hidden="true"
+                      >
+                        {activa ? <Check size={14} /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="recurso-nota">
+                Solo puede registrar un recurso por ahora. Si elige reconsideración
+                o apelación, el formulario correspondiente se añadirá a los pasos
+                siguientes.
+              </p>
+            </CardBody>
+          </Card>
+        );
+
+      case "reconsideracion":
+        return (
+          <ReconsideracionStep
+            data={wizardData.reconsideracion ?? undefined}
+            notificacionObligatoria={false}
+            onChange={(reconsideracion: Reconsideracion) =>
+              updateWizardData({ reconsideracion })
+            }
+          />
+        );
+
+      case "apelacion":
+        return (
+          <ApelacionStep
+            data={wizardData.apelacion ?? undefined}
+            onChange={(apelacion: Apelacion) =>
+              updateWizardData({ apelacion })
             }
           />
         );
@@ -277,12 +544,14 @@ export const NuevaSolicitud: React.FC = () => {
         return (
           <ResumenStep
             data={wizardData}
+            reconsideracion={wizardData.reconsideracion}
+            apelacion={wizardData.apelacion}
             onSubmit={handleSubmit}
             onBack={() => handleBack()}
             loading={loading}
           />
         );
-      
+
       default:
         return null;
     }
@@ -291,6 +560,31 @@ export const NuevaSolicitud: React.FC = () => {
   const visibleSteps = getVisibleSteps();
   const currentStepIndex = getCurrentStepIndex();
   const currentStepData = visibleSteps[currentStepIndex];
+
+  /**
+   * Los recursos son opcionales: el cliente puede grabar solo la resolución, o
+   * la resolución más la reconsideración, sin llenar la notificación.
+   */
+  const pasoOpcionalActual =
+    currentStep === "reconsideracion" || currentStep === "apelacion";
+
+  const textoOmitir =
+    currentStep === "apelacion"
+      ? "Omitir apelación"
+      : "Omitir reconsideración";
+
+  const omitirPasoOpcional = () => {
+    if (currentStep === "apelacion") {
+      updateWizardData({ apelacion: undefined });
+    } else {
+      updateWizardData({ reconsideracion: undefined });
+    }
+    const pasos = getVisibleSteps();
+    const indice = pasos.findIndex((paso) => paso.key === currentStep);
+    if (indice < pasos.length - 1) {
+      setCurrentStep(pasos[indice + 1].key);
+    }
+  };
 
   return (
     <div className="nueva-solicitud">
@@ -361,7 +655,7 @@ export const NuevaSolicitud: React.FC = () => {
           )}
           
           {renderStepContent()}
-          
+
           {/* Navigation Buttons */}
           {currentStep !== "proceso-nuevo" && currentStep !== "resumen" && (
             <div className="step-navigation">
@@ -373,7 +667,17 @@ export const NuevaSolicitud: React.FC = () => {
               >
                 Anterior
               </Button>
-              
+
+              {pasoOpcionalActual && (
+                <Button
+                  variant="ghost"
+                  onClick={omitirPasoOpcional}
+                  className="step-skip"
+                >
+                  {textoOmitir}
+                </Button>
+              )}
+
               <Button
                 onClick={goNext}
                 disabled={!canGoNext()}

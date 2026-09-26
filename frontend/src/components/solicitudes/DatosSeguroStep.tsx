@@ -2,8 +2,8 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Shield, AlertCircle, CheckCircle, FileText } from "lucide-react";
-import { Select, Input, Card, CardBody, Badge } from "../ui";
+import { AlertCircle, CheckCircle, FileText } from "lucide-react";
+import { Select, Input, Card, CardBody } from "../ui";
 import type {
   DatosSeguro,
   RiesgoSeguro,
@@ -132,17 +132,6 @@ export const DatosSeguroStep: React.FC<DatosSeguroStepProps> = ({ data, onChange
   return (
     <div className="datos-seguro-step">
       <div className="step-intro">
-        <div className="intro-header">
-          <Shield className="intro-icon" />
-          <div>
-            <h3>Datos Específicos de SEGURO</h3>
-            <p>Complete la información requerida para trámites de seguro</p>
-          </div>
-        </div>
-        <Badge variant="primary" className="tipo-badge">
-          <Shield size={16} />
-          Trámite de Seguro
-        </Badge>
       </div>
 
       <form className="datos-seguro-form">

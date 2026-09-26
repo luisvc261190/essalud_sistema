@@ -2,8 +2,8 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Heart, AlertCircle, CheckCircle, FileText } from "lucide-react";
-import { Select, Input, Card, CardBody, Badge } from "../ui";
+import { Heart, AlertCircle, FileText } from "lucide-react";
+import { Select, Input, Card, CardBody } from "../ui";
 import type {
   DatosSubsidio,
   RiesgoSubsidio,
@@ -145,51 +145,10 @@ export const DatosSubsidioStep: React.FC<DatosSubsidioStepProps> = ({ data, onCh
 
   return (
     <div className="datos-subsidio-step">
-      <div className="step-intro">
-        <div className="intro-header">
-          <Heart className="intro-icon" />
-          <div>
-            <h3>Datos Específicos de SUBSIDIO</h3>
-            <p>Complete la información requerida para trámites de subsidio</p>
-          </div>
-        </div>
-        <Badge variant="secondary" className="tipo-badge">
-          <Heart size={16} />
-          Trámite de Subsidio
-        </Badge>
-      </div>
+
 
       <form className="datos-subsidio-form">
         <div className="form-sections">
-          {/* Motivo (Obligatorio para subsidios) */}
-          <Card className="form-section form-section-full">
-            <CardBody>
-              <div className="section-header">
-                <FileText className="section-icon" />
-                <h4>Motivo del Subsidio (Obligatorio)</h4>
-              </div>
-              
-              <Input
-                label="Detalle del Motivo"
-                placeholder="Ingrese el motivo del subsidio"
-                helperText="Máximo 100 caracteres alfanuméricos (obligatorio)"
-                fullWidth
-                maxLength={100}
-                error={errors.motivo?.message}
-                {...register("motivo")}
-                required
-              />
-
-              <div className="character-count">
-                <span 
-                  className={watchedValues.motivo && watchedValues.motivo.length > 80 ? "warning" : ""}
-                >
-                  {(watchedValues.motivo || "").length}/100 caracteres
-                </span>
-              </div>
-            </CardBody>
-          </Card>
-
           {/* Riesgo del Subsidio */}
           <Card className="form-section">
             <CardBody>
@@ -258,6 +217,37 @@ export const DatosSubsidioStep: React.FC<DatosSubsidioStepProps> = ({ data, onCh
               )}
             </CardBody>
           </Card>
+
+          {/* Motivo (Obligatorio para subsidios). Va al final: se escribe después
+              de haber definido el riesgo y la decisión, que es lo que el motivo
+              justifica. */}
+          <Card className="form-section form-section-full">
+            <CardBody>
+              <div className="section-header">
+                <FileText className="section-icon" />
+                <h4>Motivo del Subsidio (Obligatorio)</h4>
+              </div>
+              
+              <Input
+                label="Detalle del Motivo"
+                placeholder="Ingrese el motivo del subsidio"
+                helperText="Máximo 100 caracteres alfanuméricos (obligatorio)"
+                fullWidth
+                maxLength={100}
+                error={errors.motivo?.message}
+                {...register("motivo")}
+                required
+              />
+
+              <div className="character-count">
+                <span 
+                  className={watchedValues.motivo && watchedValues.motivo.length > 80 ? "warning" : ""}
+                >
+                  {(watchedValues.motivo || "").length}/100 caracteres
+                </span>
+              </div>
+            </CardBody>
+          </Card>
         </div>
 
         {/* Resumen de Selección */}
@@ -265,8 +255,8 @@ export const DatosSubsidioStep: React.FC<DatosSubsidioStepProps> = ({ data, onCh
           <Card className="selection-summary">
             <CardBody>
               <div className="summary-header">
-                <CheckCircle className="summary-icon" />
-                <h4>Datos de Subsidio Completados</h4>
+                <Heart className="summary-icon" size={18} />
+                <h4>Resumen del Subsidio</h4>
               </div>
               
               <div className="summary-grid">

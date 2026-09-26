@@ -16,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 _SENTENCIAS: list[str] = [
     "CREATE EXTENSION IF NOT EXISTS pg_trgm",
+    # El buscador compara el NIT ya normalizado a digitos
+    # (replace(replace(nit,'-',''),'NIT','')). Un indice sobre la columna `nit`
+    # no sirve para eso, asi que se indexa la EXPRESION EXACTA que usa la
+    # consulta: asi el indice puede usarse en vez de recorrer la tabla entera.
+    "CREATE INDEX IF NOT EXISTS ix_solicitudes_nit_digitos_trgm "
+    "ON solicitudes USING gin "
+    "((replace(replace(nit, '-', ''), 'NIT', '')) gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS ix_solicitudes_nit_trgm "
     "ON solicitudes USING gin (nit gin_trgm_ops)",
     "CREATE INDEX IF NOT EXISTS ix_solicitudes_exp_sgd_trgm "

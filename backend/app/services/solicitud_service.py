@@ -42,14 +42,29 @@ def _verificar_rama(tipo_tramite: str, datos_seguro, datos_subsidio):
             raise AppError(400, "Para SUBSIDIO se requiere el bloque datos_subsidio (motivo, riesgo y decision).")
 
 
+def _aplicar_notificacion(entidad, payload) -> None:
+    """Vuelca el bloque de notificacion, que es opcional.
+
+    Si no se informo ningun dato, los cuatro campos quedan en NULL y el
+    tramite se puede grabar sin haber llegado a la notificacion.
+    """
+    if payload.fecha_notificacion is None:
+        entidad.fecha_notificacion = None
+        entidad.medio_comunicacion = None
+        entidad.dni_recepciona = None
+        entidad.apellidos_nombres = None
+        return
+    entidad.fecha_notificacion = payload.fecha_notificacion
+    entidad.medio_comunicacion = payload.medio_comunicacion
+    entidad.dni_recepciona = normalizar_dni_ce(payload.dni_recepciona)
+    entidad.apellidos_nombres = payload.apellidos_nombres.strip()
+
+
 def _set_resolucion(res: Resolucion, payload) -> None:
     res.numero_resolucion = formatear_numero_resolucion(payload.numero_resolucion)
     res.anio = payload.anio
     res.fecha_emision = payload.fecha_emision
-    res.fecha_notificacion = payload.fecha_notificacion
-    res.medio_comunicacion = payload.medio_comunicacion
-    res.dni_recepciona = normalizar_dni_ce(payload.dni_recepciona)
-    res.apellidos_nombres = payload.apellidos_nombres.strip()
+    _aplicar_notificacion(res, payload)
 
 
 def _set_reconsideracion(rec: RecursoReconsideracion, payload) -> None:
@@ -58,10 +73,7 @@ def _set_reconsideracion(rec: RecursoReconsideracion, payload) -> None:
     rec.anio = payload.anio
     rec.fecha_emision = payload.fecha_emision
     rec.decision_resolucion = payload.decision_resolucion
-    rec.fecha_notificacion = payload.fecha_notificacion
-    rec.medio_comunicacion = payload.medio_comunicacion
-    rec.dni_recepciona = normalizar_dni_ce(payload.dni_recepciona)
-    rec.apellidos_nombres = payload.apellidos_nombres.strip()
+    _aplicar_notificacion(rec, payload)
 
 
 def _set_apelacion(ap: RecursoApelacion, payload) -> None:
@@ -211,6 +223,12 @@ def actualizar_resolucion(db, solicitud: Solicitud, *, payload) -> Resolucion:
 def crear_reconsideracion(db, solicitud: Solicitud, *, payload) -> RecursoReconsideracion:
     if solicitud.reconsideracion:
         raise AppError(409, "La solicitud ya tiene un recurso de reconsideracion registrado.")
+    if not solicitud.resolucion:
+        raise AppError(
+            409,
+            "No se puede registrar la reconsideracion: la solicitud aun no tiene "
+            "resolucion. Registre primero la resolucion.",
+        )
     rec = RecursoReconsideracion()
     _set_reconsideracion(rec, payload)
     solicitud.reconsideracion = rec
@@ -221,6 +239,12 @@ def crear_reconsideracion(db, solicitud: Solicitud, *, payload) -> RecursoRecons
 def crear_apelacion(db, solicitud: Solicitud, *, payload) -> RecursoApelacion:
     if solicitud.apelacion:
         raise AppError(409, "La solicitud ya tiene un recurso de apelacion registrado.")
+    if not solicitud.resolucion:
+        raise AppError(
+            409,
+            "No se puede registrar la apelacion: la solicitud aun no tiene "
+            "resolucion. Registre primero la resolucion.",
+        )
     ap = RecursoApelacion()
     _set_apelacion(ap, payload)
     solicitud.apelacion = ap
